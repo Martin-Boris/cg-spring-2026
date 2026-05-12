@@ -26,12 +26,6 @@ public final class TrainPlanner {
                 return new Action.Train(v, v, 0, v);
             }
         }
-        for (int v = V_MAX; v >= 1; v--) {
-            int cost = n + v * v;
-            if (plums >= cost && lemons >= cost) {
-                return new Action.Train(v, v, 0, 0);
-            }
-        }
         return null;
     }
 

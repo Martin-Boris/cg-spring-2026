@@ -36,12 +36,12 @@ class TrainPlannerTest {
     }
 
     @Test
-    void falls_back_to_zero_chop_when_no_iron_at_turn_1() {
+    void returns_null_when_chop_power_zero() {
         GameState s = stateWithTurn(1, 5, 5, 0);
 
         Action.Train train = TrainPlanner.plan(s);
 
-        assertThat(train).isEqualTo(new Action.Train(2, 2, 0, 0));
+        assertThat(train).isNull();
     }
 
     @Test
