@@ -100,38 +100,52 @@ Notes :
 - Distance Manhattan = approximation rapide. Pas de pathfinding réel ici (l'arbitre gère le contournement quand le `MOVE` est émis).
 - Règle mature-first **stricte** : tant qu'il existe au moins une mature dans `zoned`, on ignore complètement les immatures. C'est le comportement décrit par le brief utilisateur ("il focus en priorité les arbres mature... Si jamais il n'y en a plus il passe sur les arbres non mature").
 
-## 5. TrainPlanner — un seul TRAIN, au tour 1
+## 5. TrainPlanner — un seul TRAIN, au tour 1 (stats découplées)
 
-Politique V1 simplifiée : **un seul `TRAIN` sur toute la partie, émis uniquement au tour 1**, avec les stats les plus ambitieuses abordables sur **moveSpeed, carryCapacity, chopPower** (`harvestPower = 0`).
+Politique V1 : **un seul `TRAIN` sur toute la partie, émis uniquement au tour 1**. Chaque stat configurable (`moveSpeed`, `carryCapacity`, `chopPower`) est **dimensionnée indépendamment** sur son propre budget de ressource. `harvestPower = 0` (pari rush wood — pas de HARVEST en V1).
 
-Algorithme :
+### Pourquoi découpler
+
+Chaque stat consomme un type de ressource différent (PLUM / LEMON / IRON). Il n'existe **aucun arbitrage** entre ces budgets : pousser `vSpeed` à fond ne prend rien à `vChop`. La politique précédente (un seul `v` partagé) dégradait inutilement les stats quand une seule ressource était limitante (ex. IRON rare → on perdait speed et carry alors que PLUM/LEMON étaient abondants).
+
+### Garde-fou « troll utile »
+
+Un troll spawn avec `harvestPower = 0` doit **au minimum** pouvoir bouger, porter et couper. Si l'une des trois valeurs `vSpeed`, `vCarry`, `vChop` tombe à 0, le troll est inutile pour la stratégie rush wood — **mieux vaut ne pas spawn** que payer un coût (n + 0² = n) pour une unité bloquée :
+
+- `vChop = 0` → ne peut pas CHOP, donc aucun WOOD (et harvestPower=0 par design).
+- `vCarry = 0` → CHOP produit du wood que le troll ne peut pas porter (overflow garanti, ressource perdue).
+- `vSpeed = 0` → ne peut pas se déplacer, donc reste coincé près du shack et ne peut jamais atteindre un arbre.
+
+### Algorithme
+
 ```
 si state.turn != 1 : return null
 
 n = nb trolls alliés (= 1 au tour 1 sauf changement de règle)
 
-pour v de V_MAX (= 4) descendant jusqu'à 1 :
-    coutPlum  = n + v * v       // moveSpeed → PLUM
-    coutLemon = n + v * v       // carryCapacity → LEMON
-    coutIron  = n + v * v       // chopPower → IRON
-    si shackInv[PLUM]  >= coutPlum
-       && shackInv[LEMON] >= coutLemon
-       && shackInv[IRON]  >= coutIron :
-        return new Train(v, v, 0, v)
+vSpeed = maxAffordable(shackInv[PLUM],  n)   // PLUM  → movementSpeed
+vCarry = maxAffordable(shackInv[LEMON], n)   // LEMON → carryCapacity
+vChop  = maxAffordable(shackInv[IRON],  n)   // IRON  → chopPower
 
-// Si IRON manque, on dégrade en abandonnant chopPower plutôt que de skipper le TRAIN
-pour v de V_MAX (= 4) descendant jusqu'à 1 :
-    si shackInv[PLUM] >= n + v * v && shackInv[LEMON] >= n + v * v :
-        return new Train(v, v, 0, 0)
+si vSpeed == 0 OR vCarry == 0 OR vChop == 0 :
+    return null
 
-return null
+return new Train(vSpeed, vCarry, 0, vChop)
+
+
+maxAffordable(stock, n) :
+    pour v de V_MAX (= 4) descendant jusqu'à 1 :
+        si stock >= n + v * v : return v
+    return 0
 ```
 
-`V_MAX = 4` : v=5 coûterait 26 ressources d'un type pour 1 stat de plus (ROI très faible).
+`V_MAX = 4` : `v=5` coûterait 26 ressources d'un type pour 1 stat de plus (ROI quadratique pourri).
 
-Conséquences assumées :
-- **Aucun TRAIN après le tour 1**, même si le shack accumule des ressources plus tard. C'est un choix V1 : on parie sur la valeur du 2ᵉ troll précoce + le rush wood des deux unités existantes, sans nouveau spawn.
-- Si l'inventaire shack au tour 1 ne permet aucun `Train(v,v,0,v)` ni `Train(v,v,0,0)` même à v=1, **on ne TRAIN jamais** et on joue à 1 troll toute la partie. À mesurer après tests pour décider d'une V2.
+### Conséquences assumées
+
+- **Aucun TRAIN après le tour 1**, même si le shack accumule des ressources plus tard. Choix V1 délibéré : on parie sur la valeur d'un 2ᵉ troll précoce + le rush wood des deux unités, sans gérer de nouveau spawn.
+- Si l'inventaire shack au tour 1 ne permet pas au moins `vSpeed=vCarry=vChop=1` (soit ≥ n+1 dans PLUM, LEMON **et** IRON), **on ne TRAIN jamais** de la partie et on joue à 1 troll. À mesurer pour décider d'une V2.
+- Un troll est désormais soit absent, soit pleinement opérationnel — plus de fallback `Train(v,v,0,0)` produisant un spawn vide.
 
 ## 6. TreeZoning (Voronoi statique)
 
@@ -218,10 +232,14 @@ Tests prévus (un par comportement) :
 | 7  | `leader_targets_opponent_zone_first`                             | Voronoi : LEADER ignore les arbres côté MINE tant qu'il y en a OPP. |
 | 8  | `leader_falls_back_when_no_opp_trees`                            | LEADER prend des arbres MINE si plus d'OPP.                       |
 | 9  | `random_walk_when_no_trees`                                      | Émet un `Move` vers une case GRASS différente du troll.           |
-| 10 | `train_planner_emits_max_affordable_train_at_turn_1`             | Tour 1 : `Train(v,v,0,v)` au plus haut v affordable.              |
-| 11 | `train_planner_falls_back_zero_chop_when_no_iron_at_turn_1`      | Tour 1 : `Train(v,v,0,0)` si IRON insuffisant mais PLUM/LEMON OK. |
-| 12 | `train_planner_returns_null_when_resources_insufficient_at_turn_1` | Tour 1 : aucun TRAIN si shackInv trop pauvre.                   |
-| 12b| `train_planner_returns_null_after_turn_1`                        | Tour > 1 : toujours null, même si ressources OK.                  |
+| 10 | `train_planner_emits_max_affordable_train_at_turn_1`             | Tour 1, budgets symétriques : `Train(v,v,0,v)` au plus haut v affordable. |
+| 11 | `train_planner_decouples_stats_with_asymmetric_budgets`          | Tour 1, ex. PLUM=20/LEMON=20/IRON=2/n=1 → `Train(4,4,0,1)`.       |
+| 11b| `train_planner_picks_different_v_per_stat`                       | Tour 1, ex. PLUM=5/LEMON=11/IRON=2/n=1 → `Train(2,3,0,1)`.        |
+| 12 | `train_planner_returns_null_when_chop_power_zero`                | Tour 1, IRON < n+1 → null (plus de fallback `Train(v,v,0,0)`).    |
+| 12a| `train_planner_returns_null_when_carry_capacity_zero`            | Tour 1, LEMON < n+1 → null même si PLUM et IRON suffisent.        |
+| 12b| `train_planner_returns_null_when_move_speed_zero`                | Tour 1, PLUM < n+1 → null même si LEMON et IRON suffisent.        |
+| 12c| `train_planner_returns_null_when_all_resources_insufficient`     | Tour 1, aucune ressource ≥ n+1 → null.                            |
+| 12d| `train_planner_returns_null_after_turn_1`                        | Tour > 1 : toujours null, même si ressources OK.                  |
 | 13 | `tree_zoning_voronoi_assigns_correct_side`                       | Cases plus proches de mon shack = MINE, etc.                      |
 | 14 | `decide_emits_one_action_per_my_troll_plus_optional_train`       | Cardinalité de la sortie correcte.                                |
 
