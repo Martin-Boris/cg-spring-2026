@@ -83,4 +83,26 @@ class TrainPlannerTest {
 
         assertThat(train).isEqualTo(new Action.Train(2, 3, 0, 1));
     }
+
+    @Test
+    void returns_null_when_carry_capacity_zero() {
+        // PLUM=5, LEMON=0 (insuffisant pour v=1), IRON=5
+        //   vSpeed=2, vCarry=0, vChop=2 → troll incapable de porter le wood
+        GameState s = stateWithTurn(1, 5, 0, 5);
+
+        Action.Train train = TrainPlanner.plan(s);
+
+        assertThat(train).isNull();
+    }
+
+    @Test
+    void returns_null_when_move_speed_zero() {
+        // PLUM=0, LEMON=5, IRON=5
+        //   vSpeed=0, vCarry=2, vChop=2 → troll immobile
+        GameState s = stateWithTurn(1, 0, 5, 5);
+
+        Action.Train train = TrainPlanner.plan(s);
+
+        assertThat(train).isNull();
+    }
 }

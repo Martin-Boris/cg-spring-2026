@@ -20,7 +20,7 @@ public final class TrainPlanner {
         int vCarry = maxAffordable(state.myShackInv[ResourceType.LEMON.ordinal()], n);
         int vChop = maxAffordable(state.myShackInv[ResourceType.IRON.ordinal()], n);
 
-        if (vChop == 0) {
+        if (vSpeed == 0 || vCarry == 0 || vChop == 0) {
             return null;
         }
         return new Action.Train(vSpeed, vCarry, 0, vChop);
