@@ -5,9 +5,18 @@
 Jeu CodinGame opposant deux joueurs sur une grille rectangulaire. Chaque joueur contrôle une **meute de trolls** (1 au départ) ainsi qu'un **shack** (cabane).
 
 Objectif : marquer plus de points que l'adversaire en **300 tours** en déposant des ressources dans son shack :
-- **1 point** par fruit (PLUM, LEMON, APPLE, BANANA) déposé.
-- **4 points** par WOOD déposé.
-- IRON ne rapporte aucun point mais sert à entraîner des trolls.
+
+### Barème de scoring (par unité déposée)
+| Ressource | Points / unité | Rôle stratégique |
+|-----------|----------------|------------------|
+| PLUM | **1** | Score + TRAIN movementSpeed |
+| LEMON | **1** | Score + TRAIN carryCapacity |
+| APPLE | **1** | Score + TRAIN harvestPower |
+| BANANA | **1** | Score (pas d'usage TRAIN) |
+| **WOOD** | **4** | **Score uniquement — 4× plus rentable au point qu'un fruit** |
+| IRON | **0** | **Aucun point** — sert seulement à TRAIN chopPower |
+
+**Implication directe** : 1 wood = 4 fruits côté score. Couper un arbre adulte (size 4) = **16 points** en une action. Le WOOD est la ressource de score la plus dense ; IRON ne sert que de matière première pour TRAIN.
 
 Les ressources servent à :
 - **Entraîner** de nouveaux trolls (4 attributs paramétrables une fois pour toutes).
@@ -143,7 +152,7 @@ Exemple (n=2) : TRAIN 2 3 1 0 coûte 6 PLUM, 11 LEMON, 3 APPLE, 2 IRON.
 
 ### Victoire
 - Score final strictement supérieur à celui de l'adversaire.
-- Score = (somme des fruits déposés) × 1 + (wood déposé) × 4. IRON = 0 point.
+- **Formule de score** : `score = plums_déposés + lemons_déposés + apples_déposés + bananas_déposés + 4 × wood_déposé`. IRON = 0 point (utile uniquement pour TRAIN chopPower).
 
 ### Défaite
 - Score inférieur à l'adversaire.
@@ -162,7 +171,9 @@ Exemple (n=2) : TRAIN 2 3 1 0 coûte 6 PLUM, 11 LEMON, 3 APPLE, 2 IRON.
 - **TRAIN coût croissant** : `n + v²`. Doubler les trolls double presque le coût de base, et les hauts stats sont quadratiquement chers. Privilégier des trolls avec quelques attributs forts plutôt que beaucoup d'unités max-stat.
 - **Cooldown près de l'eau** : APPLE passe de 9 à 2 (×4.5 plus rapide). Eau prioritaire pour le placement de PLANT.
 - **BANANA** : cooldown 6 normal mais 4 près de l'eau (faible gain). Health très basse → coupe rapide (intéressant pour WOOD farm avec faible chopPower).
-- **WOOD = size de l'arbre coupé** → plus rentable de couper un arbre adulte (size 4 = 4 wood × 4 pts = 16 pts).
+- **WOOD = size de l'arbre coupé** → plus rentable de couper un arbre adulte (size 4 = 4 wood × 4 pts = **16 pts** en un CHOP). Comparé à 1 HARVEST de 3 fruits = 3 pts, le WOOD est massivement plus dense en score.
+- **IRON = 0 point** : ne miner que pour préparer un TRAIN avec chopPower > 0. Tout IRON déposé "au cas où" gèle des slots d'inventaire shack sans bénéfice direct.
+- **Arbitrage fruit vs wood** : un fruit récupéré coûte 1 HARVEST (souvent rapide, en série sur un arbre mature) ; un WOOD coûte CHOP × (health/chopPower) tours mais détruit la source. **Toujours équilibrer wood farming et plantation pour ne pas tarir la carte** (rappel : 10 tours sans arbres = défaite/fin).
 - **Tour 1 budget 1000 ms** : utilisable pour pré-calculer distances, zones, scoring de cases.
 - **Inventaire shack pour TRAIN** : seules les ressources du shack comptent (pas celles portées par les trolls). Toujours DROP avant de TRAIN.
 - **TRAIN est gratuit en "slot d'action"** : on peut TRAIN ET faire bouger/récolter tous les trolls existants dans le même tour. Donc, dès qu'on a les ressources et un bon ROI, on TRAIN sans arbitrage avec une autre action.
