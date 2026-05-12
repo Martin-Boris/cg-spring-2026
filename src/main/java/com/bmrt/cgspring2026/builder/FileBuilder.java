@@ -34,6 +34,7 @@ public class FileBuilder {
     private static final String SRC_ROOT_JAVA = "src/main/java/";
     private static final String SRC_ROOT_CPP_HEADERS = "src/competitiveProgramming/headers/";
     private static final String END_COMMENT = "*/";
+    private static final String PLAYER_CLASS = "src/main/java/com/bmrt/cgspring2026/Player.java";
 
     private static final Charset CHARSET = StandardCharsets.UTF_8;
     private final Set<String> imports = new HashSet<>();
@@ -44,64 +45,12 @@ public class FileBuilder {
     private final boolean javaCode;
     private final String sourceRoot;
 
-    private static class ClassCode {
-        private final String classFile;
-
-        private String className;
-        private String keyword;
-
-        private final List<String> beforeClassContent = new ArrayList<>();
-        private final List<String> afterClassContent = new ArrayList<>();
-
-        ClassCode(String classFile) {
-            this.classFile = classFile;
-        }
-
-        public String className() {
-            return className;
-        }
-
-        public String declaration() {
-            return keyword + className;
-        }
-
-        public void declaration(String line, String keyword) {
-            className = extractDeclaration(line, keyword);
-            this.keyword = keyword;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            final ClassCode other = (ClassCode) obj;
-            if (classFile == null) {
-                if (other.classFile != null) {
-                    return false;
-                }
-            } else if (!classFile.equals(other.classFile)) {
-                return false;
-            }
-            return true;
-        }
-
-        private String extractDeclaration(String line, String str) {
-            return line.substring(line.indexOf(str) + str.length()).replaceAll("\\{", "").trim();
-        }
-
-        @Override
-        public int hashCode() {
-            final int prime = 31;
-            int result = 1;
-            result = prime * result + ((classFile == null) ? 0 : classFile.hashCode());
-            return result;
+    private FileBuilder(boolean javaCode) {
+        this.javaCode = javaCode;
+        if (javaCode) {
+            sourceRoot = SRC_ROOT_JAVA;
+        } else {
+            sourceRoot = SRC_ROOT_CPP_HEADERS;
         }
     }
 
@@ -109,19 +58,9 @@ public class FileBuilder {
         if (args.length != 1) {
             System.err.println("Unexpected number of arguments");
         } else {
-            String fileName = args[0];
-            final FileBuilder builder = new FileBuilder(fileName.endsWith(".java"));
-            final ClassCode treated = builder.processFile(fileName);
+            final FileBuilder builder = new FileBuilder(true);
+            final ClassCode treated = builder.processFile(PLAYER_CLASS);
             builder.write(treated);
-        }
-    }
-
-    private FileBuilder(boolean javaCode) {
-        this.javaCode = javaCode;
-        if (javaCode) {
-            sourceRoot = SRC_ROOT_JAVA;
-        } else {
-            sourceRoot = SRC_ROOT_CPP_HEADERS;
         }
     }
 
@@ -164,6 +103,9 @@ public class FileBuilder {
                         fileKeyWordRead = true;
                     } else if (line.contains("enum ")) {
                         code.declaration(line, "enum ");
+                        fileKeyWordRead = true;
+                    } else if (line.contains("record ")) {
+                        code.declaration(line, "record ");
                         fileKeyWordRead = true;
                     } else {
                         code.beforeClassContent.add(line);
@@ -213,6 +155,7 @@ public class FileBuilder {
         final ClassCode code = new ClassCode(fileName);
         boolean fileKeyWordRead = false;
         boolean insideComment = false;
+        StringBuilder pendingDeclaration = null;
         for (final String line : fileContent) {
             final String trimedLine = line.trim();
             if (insideComment) {
@@ -224,24 +167,37 @@ public class FileBuilder {
                         fileKeyWordRead = addLineToCode(code, fileKeyWordRead, remainingCode);
                     }
                 }
-                // We can skip comments since generated file size might be
-                // limited
-            } else if (trimedLine.isEmpty()) {
-                // We don't need empty lines
-            } else if (trimedLine.startsWith("//")) {
-                // We can skip comments since generated file size might be
-                // limited
-            } else if (trimedLine.startsWith("/*")) {
-                // We can skip comments since generated file size might be
-                // limited
+                continue;
+            }
+            if (trimedLine.isEmpty() || trimedLine.startsWith("//")) {
+                continue;
+            }
+            if (trimedLine.startsWith("/*")) {
                 if (!trimedLine.contains(END_COMMENT)) {
                     insideComment = true;
                 }
-            } else {
-                fileKeyWordRead = addLineToCode(code, fileKeyWordRead, line);
+                continue;
             }
+            if (pendingDeclaration != null) {
+                pendingDeclaration.append(' ').append(line);
+                if (line.contains("{")) {
+                    fileKeyWordRead = addLineToCode(code, fileKeyWordRead, pendingDeclaration.toString());
+                    pendingDeclaration = null;
+                }
+                continue;
+            }
+            if (!fileKeyWordRead && javaCode && isDeclarationStart(line) && !line.contains("{")) {
+                pendingDeclaration = new StringBuilder(line);
+                continue;
+            }
+            fileKeyWordRead = addLineToCode(code, fileKeyWordRead, line);
         }
         return code;
+    }
+
+    private boolean isDeclarationStart(String line) {
+        return line.contains("class ") || line.contains("interface ")
+                || line.contains("enum ") || line.contains("record ");
     }
 
     private void readPackageClasses(String fileName) {
@@ -318,6 +274,60 @@ public class FileBuilder {
             Files.write(Paths.get(outputFile), lines, CHARSET);
         } catch (final IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static class ClassCode {
+        private final String classFile;
+        private final List<String> beforeClassContent = new ArrayList<>();
+        private final List<String> afterClassContent = new ArrayList<>();
+        private String className;
+        private String keyword;
+
+        ClassCode(String classFile) {
+            this.classFile = classFile;
+        }
+
+        public String className() {
+            return className;
+        }
+
+        public String declaration() {
+            return keyword + className;
+        }
+
+        public void declaration(String line, String keyword) {
+            className = extractDeclaration(line, keyword);
+            this.keyword = keyword;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            final ClassCode other = (ClassCode) obj;
+            if (classFile == null) {
+                return other.classFile == null;
+            } else return classFile.equals(other.classFile);
+        }
+
+        private String extractDeclaration(String line, String str) {
+            return line.substring(line.indexOf(str) + str.length()).replaceAll("\\{", "").trim();
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((classFile == null) ? 0 : classFile.hashCode());
+            return result;
         }
     }
 }
