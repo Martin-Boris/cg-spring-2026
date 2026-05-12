@@ -213,6 +213,7 @@ public class FileBuilder {
         final ClassCode code = new ClassCode(fileName);
         boolean fileKeyWordRead = false;
         boolean insideComment = false;
+        boolean awaitingOpeningBrace = false;
         for (final String line : fileContent) {
             final String trimedLine = line.trim();
             if (insideComment) {
@@ -226,6 +227,13 @@ public class FileBuilder {
                 }
                 // We can skip comments since generated file size might be
                 // limited
+            } else if (awaitingOpeningBrace) {
+                // Continuation lines of a multi-line class/interface/enum declaration
+                // (e.g. "permits ..." lines). Drop them entirely.
+                if (line.contains("{")) {
+                    awaitingOpeningBrace = false;
+                    fileKeyWordRead = true;
+                }
             } else if (trimedLine.isEmpty()) {
                 // We don't need empty lines
             } else if (trimedLine.startsWith("//")) {
@@ -238,7 +246,14 @@ public class FileBuilder {
                     insideComment = true;
                 }
             } else {
+                boolean prevKeyWordRead = fileKeyWordRead;
                 fileKeyWordRead = addLineToCode(code, fileKeyWordRead, line);
+                // If we just detected a class/interface/enum keyword but the opening
+                // brace '{' is not on the same line, mark that we are awaiting it.
+                if (!prevKeyWordRead && fileKeyWordRead && !line.contains("{")) {
+                    awaitingOpeningBrace = true;
+                    fileKeyWordRead = false;
+                }
             }
         }
         return code;
