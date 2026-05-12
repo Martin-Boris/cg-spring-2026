@@ -441,22 +441,21 @@ class Player {
 	            return null;
 	        }
 	        int n = countMyTrolls(state);
-	        int plums = state.myShackInv[ResourceType.PLUM.ordinal()];
-	        int lemons = state.myShackInv[ResourceType.LEMON.ordinal()];
-	        int iron = state.myShackInv[ResourceType.IRON.ordinal()];
+	        int vSpeed = maxAffordable(state.myShackInv[ResourceType.PLUM.ordinal()], n);
+	        int vCarry = maxAffordable(state.myShackInv[ResourceType.LEMON.ordinal()], n);
+	        int vChop = maxAffordable(state.myShackInv[ResourceType.IRON.ordinal()], n);
+	        if (vSpeed == 0 || vCarry == 0 || vChop == 0) {
+	            return null;
+	        }
+	        return new Action.Train(vSpeed, vCarry, 0, vChop);
+	    }
+	    private static int maxAffordable(int stock, int n) {
 	        for (int v = V_MAX; v >= 1; v--) {
-	            int cost = n + v * v;
-	            if (plums >= cost && lemons >= cost && iron >= cost) {
-	                return new Action.Train(v, v, 0, v);
+	            if (stock >= n + v * v) {
+	                return v;
 	            }
 	        }
-	        for (int v = V_MAX; v >= 1; v--) {
-	            int cost = n + v * v;
-	            if (plums >= cost && lemons >= cost) {
-	                return new Action.Train(v, v, 0, 0);
-	            }
-	        }
-	        return null;
+	        return 0;
 	    }
 	    private static int countMyTrolls(GameState state) {
 	        int n = 0;
