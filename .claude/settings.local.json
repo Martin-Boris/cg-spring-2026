@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(mvn package:*)",
+      "Bash(./mvnw package:*)",
+      "Bash(java -version)",
+      "Read(//c/ProgramData/chocolatey/**)",
+      "Read(//c/Users/bmartin/scoop/**)",
+      "Bash(cmd.exe:*)",
+      "Bash(mvn test:*)",
+      "Bash(export PATH=\"$PATH:/c/ProgramData/Microsoft/Windows/Start Menu/Programs/Maven/bin:/c/Program Files/Maven/bin:/c/tools/maven/bin\")",
+      "Read(//c/Users/bmartin/**)",
+      "Bash(cd \"/c/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\" 2>&1 | tail -5)",
+      "Bash(cd \"C:\\\\Users\\\\bmartin\\\\Documents\\\\projet perso\\\\cg-winter-2026\" && mvn package -q && mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\" -q && echo \"Player.java généré\")",
+      "Bash(cd \"C:\\\\Users\\\\bmartin\\\\Documents\\\\projet perso\\\\cg-winter-2026\" && mvn package -q && mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\" -q && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-01-RunB.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-01-RunC.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-01-RunD.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-01-RunE.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-01-RunF.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-01-RunG.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-02-RunA.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-02-RunB.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-02-RunC.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-02-RunD.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-03-RunA.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-03-RunB.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-03-RunC.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -DskipTests 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-05-RunC.jar && echo \"OK\")",
+      "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -Dmaven.test.skip=true 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-07-RunB.jar && echo \"OK\")",
+      "Bash(cd:*)",
+      "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\" -q)",
+      "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\")"
+    ]
+  }
+}
