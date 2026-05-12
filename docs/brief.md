@@ -22,7 +22,7 @@ Les ressources servent à :
 4. `trollsCount` puis `trollsCount` lignes de trolls (les nôtres + ceux de l'adversaire).
 
 ### Production des outputs
-Une seule ligne contenant **N commandes séparées par `;`**. Une commande par troll (et possiblement un `TRAIN` global). Les commandes sans cible (WAIT, MSG, TRAIN) sont indépendantes des trolls.
+Une seule ligne contenant **N commandes séparées par `;`**. Une commande par troll possédé. **TRAIN est une commande SUPPLÉMENTAIRE** : elle s'ajoute en plus des actions de troll, sans consommer le tour d'un troll existant. On peut donc émettre `MOVE 0 5 5; CHOP 1; TRAIN 1 1 1 0` dans le même tour. `MSG` est également indépendant des trolls.
 
 ### Ordre de résolution interne de l'arbitre (un même tour)
 1. **MOVE** des trolls
@@ -68,7 +68,7 @@ Une commande par ligne de sortie, multiples commandes séparées par `;`.
 | `PICK id type` | Prend 1 objet (fruit) du type indiqué dans le shack, si le troll est adjacent au shack. |
 | `DROP id` | Le troll adjacent (H/V) à son shack y dépose **toutes** ses ressources. |
 | `MINE id` | Récolte du fer si une case IRON est adjacente. Gain = min(chopPower, carryCapacity libre). Ressource infinie. |
-| `TRAIN moveSpeed carryCapacity harvestPower chopPower` | Crée un nouveau troll au shack avec ces attributs (immuables). Coût décrit ci-dessous. |
+| `TRAIN moveSpeed carryCapacity harvestPower chopPower` | Crée un nouveau troll au shack avec ces attributs (immuables). Coût décrit ci-dessous. **Action supplémentaire : ne consomme pas le tour d'un troll existant**, peut être combinée avec une action par troll. |
 | `WAIT` | Ne rien faire. |
 | `MSG text` | Affiche un message dans le replay. |
 
@@ -165,6 +165,7 @@ Exemple (n=2) : TRAIN 2 3 1 0 coûte 6 PLUM, 11 LEMON, 3 APPLE, 2 IRON.
 - **WOOD = size de l'arbre coupé** → plus rentable de couper un arbre adulte (size 4 = 4 wood × 4 pts = 16 pts).
 - **Tour 1 budget 1000 ms** : utilisable pour pré-calculer distances, zones, scoring de cases.
 - **Inventaire shack pour TRAIN** : seules les ressources du shack comptent (pas celles portées par les trolls). Toujours DROP avant de TRAIN.
+- **TRAIN est gratuit en "slot d'action"** : on peut TRAIN ET faire bouger/récolter tous les trolls existants dans le même tour. Donc, dès qu'on a les ressources et un bon ROI, on TRAIN sans arbitrage avec une autre action.
 - **MINE adjacent (≠ même case)** : différent de HARVEST/CHOP qui exigent même case.
 - **IRON non praticable** : on ne peut pas marcher dessus, juste l'exploiter depuis une case adjacente.
 - **Fin par absence d'arbres pendant 10 tours** : si on rase tout sans replanter, partie courte → planter est stratégique pour prolonger la collecte de l'adversaire si on est en tête.
@@ -181,3 +182,4 @@ Exemple (n=2) : TRAIN 2 3 1 0 coûte 6 PLUM, 11 LEMON, 3 APPLE, 2 IRON.
 - **Croissance/dégâts** : si on chop pendant qu'un arbre grandit dans le même tour, l'ordre dit MOVE→HARVEST→PLANT→CHOP→...→Grow → on attaque la health **avant** la croissance.
 - **Trolls qui se croisent** : pendant MOVE, peuvent-ils se croiser (échange de positions) ou y a-t-il blocage ?
 - **WAIT explicite obligatoire** ? Suffit-il de ne rien écrire pour un troll ? L'usage classique CG est qu'on doit produire une commande par troll, à confirmer.
+- **Plusieurs TRAIN par tour** ? L'énoncé ne précise pas, mais comme c'est une action supplémentaire indépendante des trolls, on pourrait théoriquement émettre `TRAIN ...; TRAIN ...`. À confirmer (et `n` est-il recalculé entre les deux ?). En pratique le coût grimpe vite donc rarement utile.

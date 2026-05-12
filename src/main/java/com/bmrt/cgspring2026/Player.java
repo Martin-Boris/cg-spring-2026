@@ -1,24 +1,36 @@
 package com.bmrt.cgspring2026;
 
 import com.bmrt.cgspring2026.action.Actions;
+import com.bmrt.cgspring2026.iaengine.GreedyAgent;
 import com.bmrt.cgspring2026.model.GameState;
 
 import java.util.Scanner;
 
 public class Player {
 
-    private static final long FIRST_TURN_BUDGET_MS = 900;
-    private static final long TURN_BUDGET_MS = 45;
-
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
         GameState state = new GameState();
         GameState.readInit(in, state);
 
+        GreedyAgent agent = new GreedyAgent(state.tileCount);
+        int[] actions = new int[GameState.MAX_TROLLS];
+        StringBuilder out = new StringBuilder(256);
+
         while (true) {
             GameState.readTurn(in, state);
-            // V1 (à venir) : invoquer l'agent greedy ici.
-            System.out.println(Actions.format(Actions.waitAction(), state));
+            int n = agent.decide(state, actions);
+
+            out.setLength(0);
+            if (n == 0) {
+                out.append("WAIT");
+            } else {
+                for (int i = 0; i < n; i++) {
+                    if (i > 0) out.append(';');
+                    out.append(Actions.format(actions[i], state));
+                }
+            }
+            System.out.println(out);
         }
     }
 }
