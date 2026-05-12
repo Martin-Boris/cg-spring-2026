@@ -61,4 +61,26 @@ class TrainPlannerTest {
 
         assertThat(train).isNull();
     }
+
+    @Test
+    void decouples_stats_with_asymmetric_budgets() {
+        // PLUM=20, LEMON=20, IRON=2 avec n=1
+        //   maxAffordable(20, 1) = 4 (1 + 16 = 17 <= 20)
+        //   maxAffordable(2,  1) = 1 (1 + 1  = 2  <= 2)
+        GameState s = stateWithTurn(1, 20, 20, 2);
+
+        Action.Train train = TrainPlanner.plan(s);
+
+        assertThat(train).isEqualTo(new Action.Train(4, 4, 0, 1));
+    }
+
+    @Test
+    void picks_different_v_per_stat() {
+        // n=1, PLUM=5 → v=2 (1+4=5), LEMON=11 → v=3 (1+9=10), IRON=2 → v=1 (1+1=2)
+        GameState s = stateWithTurn(1, 5, 11, 2);
+
+        Action.Train train = TrainPlanner.plan(s);
+
+        assertThat(train).isEqualTo(new Action.Train(2, 3, 0, 1));
+    }
 }
