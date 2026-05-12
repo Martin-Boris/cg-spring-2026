@@ -33,5 +33,8 @@
       "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\" -q)",
       "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\")"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
   }
 }
