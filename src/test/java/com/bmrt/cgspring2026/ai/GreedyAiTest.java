@@ -2,6 +2,7 @@ package com.bmrt.cgspring2026.ai;
 
 import com.bmrt.cgspring2026.action.Action;
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.ResourceType;
 import com.bmrt.cgspring2026.model.Tile;
 import com.bmrt.cgspring2026.model.Tree;
 import com.bmrt.cgspring2026.model.TreeType;
@@ -95,6 +96,18 @@ class GreedyAiTest {
 
         assertThat(actions).hasSize(1);
         assertThat(actions.get(0)).isInstanceOf(Action.Move.class);
+    }
+
+    @Test
+    void local_troll_adjacent_picks_banana_when_stock_available() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        s.myShackInv[ResourceType.BANANA.ordinal()] = 1;
+        s.trolls.add(troll(0, 6, 1, 5));
+
+        List<Action> actions = new GreedyAi().decide(s);
+
+        assertThat(actions).containsExactly(
+                new Action.Pick(0, ResourceType.BANANA));
     }
 
     @Test

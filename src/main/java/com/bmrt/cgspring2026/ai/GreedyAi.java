@@ -2,6 +2,7 @@ package com.bmrt.cgspring2026.ai;
 
 import com.bmrt.cgspring2026.action.Action;
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.ResourceType;
 import com.bmrt.cgspring2026.model.Tree;
 import com.bmrt.cgspring2026.model.Troll;
 
@@ -35,9 +36,10 @@ public final class GreedyAi {
                 .thenComparingInt(t -> t.id));
 
         Set<Long> assignedTrees = new HashSet<>();
+        int[] bananaBudget = { state.myShackInv[ResourceType.BANANA.ordinal()] };
         List<Action> actions = new ArrayList<>(myTrolls.size() + 1);
         for (Troll t : myTrolls) {
-            actions.add(decideForTroll(t, roles.get(t.id), state, assignedTrees));
+            actions.add(decideForTroll(t, roles.get(t.id), state, assignedTrees, bananaBudget));
         }
         if (trainAction != null) {
             actions.add(trainAction);
@@ -45,7 +47,14 @@ public final class GreedyAi {
         return actions;
     }
 
-    private Action decideForTroll(Troll troll, Role role, GameState state, Set<Long> assignedTrees) {
+    private Action decideForTroll(Troll troll, Role role, GameState state,
+                                  Set<Long> assignedTrees, int[] bananaBudget) {
+        if (role == Role.LOCAL) {
+            Action farm = BananaFarmer.plan(troll, state, bananaBudget, assignedTrees);
+            if (farm != null) {
+                return farm;
+            }
+        }
         if (troll.carryTotal() >= troll.carryCapacity && troll.carryCapacity > 0) {
             if (adjacentToMyShack(troll, state)) {
                 return new Action.Drop(troll.id);
