@@ -3,6 +3,8 @@ package com.bmrt.cgspring2026.ai;
 import com.bmrt.cgspring2026.action.Action;
 import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.model.Tile;
+import com.bmrt.cgspring2026.model.Tree;
+import com.bmrt.cgspring2026.model.TreeType;
 import com.bmrt.cgspring2026.model.Troll;
 import org.junit.jupiter.api.Test;
 
@@ -62,5 +64,26 @@ class BananaFarmerTest {
         Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
 
         assertThat(a).isNull();
+    }
+
+    @Test
+    void chops_size_zero_banana_under_troll_and_marks_assigned() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(7, 6, 1, 5);
+        s.trolls.add(t);
+        Tree banana = new Tree();
+        banana.type = TreeType.BANANA;
+        banana.x = 6;
+        banana.y = 1;
+        banana.size = 0;
+        banana.health = 1;
+        s.trees.add(banana);
+        int[] budget = {0};
+        java.util.Set<Long> assigned = new HashSet<>();
+
+        Action a = BananaFarmer.plan(t, s, budget, assigned);
+
+        assertThat(a).isEqualTo(new Action.Chop(7));
+        assertThat(assigned).contains((long) 1 * 10 + 6);
     }
 }

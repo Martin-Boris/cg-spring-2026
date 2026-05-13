@@ -3,6 +3,8 @@ package com.bmrt.cgspring2026.ai;
 import com.bmrt.cgspring2026.action.Action;
 import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.model.ResourceType;
+import com.bmrt.cgspring2026.model.Tree;
+import com.bmrt.cgspring2026.model.TreeType;
 import com.bmrt.cgspring2026.model.Troll;
 
 import java.util.Set;
@@ -29,6 +31,15 @@ public final class BananaFarmer {
         int woodIdx = ResourceType.WOOD.ordinal();
         if (troll.carry[woodIdx] >= 1) {
             return new Action.Drop(troll.id);
+        }
+
+        for (Tree tree : state.trees) {
+            if (tree.x == troll.x && tree.y == troll.y
+                    && tree.type == TreeType.BANANA
+                    && tree.size == 0) {
+                assignedTrees.add((long) tree.y * state.width + tree.x);
+                return new Action.Chop(troll.id);
+            }
         }
 
         return null;
