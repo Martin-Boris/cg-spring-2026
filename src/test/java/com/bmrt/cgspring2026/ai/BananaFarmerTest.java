@@ -68,6 +68,18 @@ class BananaFarmerTest {
     }
 
     @Test
+    void returns_null_when_carry_capacity_is_zero() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 0);
+        s.trolls.add(t);
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
+    }
+
+    @Test
     void chops_size_zero_banana_under_troll_and_marks_assigned() {
         GameState s = openMap(10, 4, 5, 1, 8, 2);
         Troll t = troll(7, 6, 1, 5);
