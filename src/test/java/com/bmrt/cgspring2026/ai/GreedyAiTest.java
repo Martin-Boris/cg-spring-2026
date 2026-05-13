@@ -157,4 +157,45 @@ class GreedyAiTest {
         assertThat(actions).hasSize(2);
         assertThat(actions.get(1)).isInstanceOf(Action.Train.class);
     }
+
+    @Test
+    void full_farming_cycle_emits_expected_actions_per_turn() {
+        int bananaIdx = ResourceType.BANANA.ordinal();
+        int woodIdx = ResourceType.WOOD.ordinal();
+        GreedyAi ai = new GreedyAi();
+
+        // Turn N: empty troll adjacent, 1 banana in stock → PICK.
+        GameState s1 = openMap(10, 4, 5, 1, 8, 2);
+        s1.myShackInv[bananaIdx] = 1;
+        s1.trolls.add(troll(0, 6, 1, 5));
+        assertThat(ai.decide(s1)).containsExactly(
+                new Action.Pick(0, ResourceType.BANANA));
+
+        // Turn N+1: troll now carries 1 banana, no tree on tile → PLANT.
+        GameState s2 = openMap(10, 4, 5, 1, 8, 2);
+        Troll t2 = troll(0, 6, 1, 5);
+        t2.carry[bananaIdx] = 1;
+        s2.trolls.add(t2);
+        assertThat(ai.decide(s2)).containsExactly(
+                new Action.Plant(0, TreeType.BANANA));
+
+        // Turn N+2: tree appears under troll, size 0 → CHOP.
+        GameState s3 = openMap(10, 4, 5, 1, 8, 2);
+        s3.trolls.add(troll(0, 6, 1, 5));
+        Tree b = new Tree();
+        b.type = TreeType.BANANA;
+        b.x = 6;
+        b.y = 1;
+        b.size = 0;
+        b.health = 1;
+        s3.trees.add(b);
+        assertThat(ai.decide(s3)).containsExactly(new Action.Chop(0));
+
+        // Turn N+3: troll carries 1 wood → DROP.
+        GameState s4 = openMap(10, 4, 5, 1, 8, 2);
+        Troll t4 = troll(0, 6, 1, 5);
+        t4.carry[woodIdx] = 1;
+        s4.trolls.add(t4);
+        assertThat(ai.decide(s4)).containsExactly(new Action.Drop(0));
+    }
 }
