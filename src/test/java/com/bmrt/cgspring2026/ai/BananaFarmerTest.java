@@ -180,4 +180,57 @@ class BananaFarmerTest {
         assertThat(a).isNull();
         assertThat(budget[0]).isOne();
     }
+
+    private Troll enemy(int id, int x, int y, int speed) {
+        Troll t = new Troll();
+        t.id = id;
+        t.player = 1;
+        t.x = x;
+        t.y = y;
+        t.movementSpeed = speed;
+        return t;
+    }
+
+    @Test
+    void does_not_pick_when_enemy_reach_is_three_turns() {
+        // distance 6, speed 2 => reach = 3 => unsafe
+        GameState s = openMap(20, 4, 5, 1, 15, 2);
+        Troll t = troll(0, 6, 1, 5);
+        s.trolls.add(t);
+        s.trolls.add(enemy(99, 12, 1, 2));
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
+        assertThat(budget[0]).isOne();
+    }
+
+    @Test
+    void picks_when_enemy_reach_is_four_turns() {
+        // distance 7, speed 2 => reach = 4 => safe
+        GameState s = openMap(20, 4, 5, 1, 15, 2);
+        Troll t = troll(0, 6, 1, 5);
+        s.trolls.add(t);
+        s.trolls.add(enemy(99, 13, 1, 2));
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isEqualTo(new Action.Pick(0, ResourceType.BANANA));
+    }
+
+    @Test
+    void ignores_enemy_with_zero_movement_speed() {
+        // Adjacent enemy but movementSpeed=0 => not a threat
+        GameState s = openMap(20, 4, 5, 1, 15, 2);
+        Troll t = troll(0, 6, 1, 5);
+        s.trolls.add(t);
+        s.trolls.add(enemy(99, 7, 1, 0));
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isEqualTo(new Action.Pick(0, ResourceType.BANANA));
+    }
 }
