@@ -40,6 +40,19 @@ class BananaFarmerTest {
     }
 
     @Test
+    void drops_when_adjacent_to_shack_and_carrying_wood() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        t.carry[com.bmrt.cgspring2026.model.ResourceType.WOOD.ordinal()] = 1;
+        s.trolls.add(t);
+        int[] budget = {0};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isEqualTo(new Action.Drop(0));
+    }
+
+    @Test
     void returns_null_when_troll_not_adjacent_to_shack() {
         GameState s = openMap(10, 4, 1, 1, 8, 2);
         Troll t = troll(0, 5, 1, 5);
