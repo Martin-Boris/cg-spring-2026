@@ -233,4 +233,25 @@ class BananaFarmerTest {
 
         assertThat(a).isEqualTo(new Action.Pick(0, ResourceType.BANANA));
     }
+
+    @Test
+    void drop_takes_priority_over_chop_when_both_apply() {
+        // Troll carries wood AND stands on a size-0 banana — DROP must win.
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        t.carry[ResourceType.WOOD.ordinal()] = 1;
+        s.trolls.add(t);
+        Tree banana = new Tree();
+        banana.type = TreeType.BANANA;
+        banana.x = 6;
+        banana.y = 1;
+        banana.size = 0;
+        banana.health = 1;
+        s.trees.add(banana);
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isEqualTo(new Action.Drop(0));
+    }
 }
