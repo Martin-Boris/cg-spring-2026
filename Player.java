@@ -630,20 +630,20 @@ class Player {
 	                return new Action.Chop(troll.id);
 	            }
 	        }
+	        boolean tileFree = true;
+	        for (Tree tree : state.trees) {
+	            if (tree.x == troll.x && tree.y == troll.y) {
+	                tileFree = false;
+	                break;
+	            }
+	        }
 	        int bananaIdx = ResourceType.BANANA.ordinal();
 	        if (troll.carry[bananaIdx] == 1 && troll.carryTotal() == 1) {
-	            boolean tileFree = true;
-	            for (Tree tree : state.trees) {
-	                if (tree.x == troll.x && tree.y == troll.y) {
-	                    tileFree = false;
-	                    break;
-	                }
-	            }
 	            if (tileFree) {
 	                return new Action.Plant(troll.id, TreeType.BANANA);
 	            }
 	        }
-	        if (troll.carryTotal() == 0 && bananaBudget[0] >= 1 && isSafeToFarm(troll.x, troll.y, state)) {
+	        if (troll.carryTotal() == 0 && bananaBudget[0] >= 1 && isSafeToFarm(troll.x, troll.y, state) && tileFree) {
 	            bananaBudget[0]--;
 	            return new Action.Pick(troll.id, ResourceType.BANANA);
 	        }

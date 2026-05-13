@@ -97,7 +97,7 @@ class BananaFarmerTest {
         Action a = BananaFarmer.plan(t, s, budget, assigned);
 
         assertThat(a).isEqualTo(new Action.Chop(7));
-        assertThat(assigned).contains((long) 1 * 10 + 6);
+        assertThat(assigned).contains((long) 10 + 6);
     }
 
     @Test
@@ -177,6 +177,25 @@ class BananaFarmerTest {
 
         assertThat(a).isNull();
         assertThat(budget[0]).isZero();
+    }
+
+    @Test
+    void does_not_pick_when_tree_on_cell() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        s.trolls.add(t);
+        Tree existing = new Tree();
+        existing.type = TreeType.PLUM;
+        existing.x = 6;
+        existing.y = 1;
+        existing.size = 2;
+        s.trees.add(existing);
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
+        assertThat(budget[0]).isOne();
     }
 
     @Test
