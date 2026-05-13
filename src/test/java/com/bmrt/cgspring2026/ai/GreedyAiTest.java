@@ -111,6 +111,38 @@ class GreedyAiTest {
     }
 
     @Test
+    void two_local_trolls_share_one_banana_budget() {
+        // Map 10x4, two adjacent trolls at (4,1) and (6,1), shack at (5,1).
+        // 1 banana in stock → first by id picks, second falls back.
+        // RoleAssigner with 2 trolls picks one LEADER (highest score, tie-break lowest id).
+        // Both trolls have identical stats → LEADER = id 0, LOCAL = id 1.
+        // LEADER (id 0) goes to TargetSelector → null tree → RandomWalk.Move
+        // LOCAL (id 1) is adjacent → PICK BANANA.
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        s.myShackInv[ResourceType.BANANA.ordinal()] = 1;
+        s.trolls.add(troll(0, 4, 1, 5));
+        s.trolls.add(troll(1, 6, 1, 5));
+
+        List<Action> actions = new GreedyAi().decide(s);
+
+        assertThat(actions).hasSize(2);
+        assertThat(actions).contains(
+                new Action.Pick(1, ResourceType.BANANA));
+    }
+
+    @Test
+    void no_pick_when_banana_stock_is_zero() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        s.myShackInv[ResourceType.BANANA.ordinal()] = 0;
+        s.trolls.add(troll(0, 6, 1, 5));
+
+        List<Action> actions = new GreedyAi().decide(s);
+
+        assertThat(actions).hasSize(1);
+        assertThat(actions.get(0)).isNotInstanceOf(Action.Pick.class);
+    }
+
+    @Test
     void emits_train_in_addition_to_troll_action_at_turn_1() {
         GameState s = openMap(10, 4, 1, 1, 8, 2);
         s.turn = 1;
