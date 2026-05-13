@@ -140,4 +140,44 @@ class BananaFarmerTest {
 
         assertThat(a).isNull();
     }
+
+    @Test
+    void picks_banana_when_empty_adjacent_and_budget_available() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        s.trolls.add(t);
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isEqualTo(new Action.Pick(0, ResourceType.BANANA));
+        assertThat(budget[0]).isZero();
+    }
+
+    @Test
+    void does_not_pick_when_budget_zero() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        s.trolls.add(t);
+        int[] budget = {0};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
+        assertThat(budget[0]).isZero();
+    }
+
+    @Test
+    void does_not_pick_when_carry_not_empty() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        t.carry[ResourceType.PLUM.ordinal()] = 1;
+        s.trolls.add(t);
+        int[] budget = {1};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
+        assertThat(budget[0]).isOne();
+    }
 }

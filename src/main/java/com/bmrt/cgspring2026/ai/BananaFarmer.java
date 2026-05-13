@@ -56,6 +56,11 @@ public final class BananaFarmer {
             }
         }
 
+        if (troll.carryTotal() == 0 && bananaBudget[0] >= 1 && isSafeToFarm(troll.x, troll.y, state)) {
+            bananaBudget[0]--;
+            return new Action.Pick(troll.id, ResourceType.BANANA);
+        }
+
         return null;
     }
 
