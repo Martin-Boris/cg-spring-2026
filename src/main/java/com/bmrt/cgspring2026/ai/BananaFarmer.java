@@ -42,6 +42,20 @@ public final class BananaFarmer {
             }
         }
 
+        int bananaIdx = ResourceType.BANANA.ordinal();
+        if (troll.carry[bananaIdx] == 1 && troll.carryTotal() == 1) {
+            boolean tileFree = true;
+            for (Tree tree : state.trees) {
+                if (tree.x == troll.x && tree.y == troll.y) {
+                    tileFree = false;
+                    break;
+                }
+            }
+            if (tileFree) {
+                return new Action.Plant(troll.id, TreeType.BANANA);
+            }
+        }
+
         return null;
     }
 }

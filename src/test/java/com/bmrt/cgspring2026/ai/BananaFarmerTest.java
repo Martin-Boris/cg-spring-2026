@@ -2,6 +2,7 @@ package com.bmrt.cgspring2026.ai;
 
 import com.bmrt.cgspring2026.action.Action;
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.ResourceType;
 import com.bmrt.cgspring2026.model.Tile;
 import com.bmrt.cgspring2026.model.Tree;
 import com.bmrt.cgspring2026.model.TreeType;
@@ -45,7 +46,7 @@ class BananaFarmerTest {
     void drops_when_adjacent_to_shack_and_carrying_wood() {
         GameState s = openMap(10, 4, 5, 1, 8, 2);
         Troll t = troll(0, 6, 1, 5);
-        t.carry[com.bmrt.cgspring2026.model.ResourceType.WOOD.ordinal()] = 1;
+        t.carry[ResourceType.WOOD.ordinal()] = 1;
         s.trolls.add(t);
         int[] budget = {0};
 
@@ -85,5 +86,51 @@ class BananaFarmerTest {
 
         assertThat(a).isEqualTo(new Action.Chop(7));
         assertThat(assigned).contains((long) 1 * 10 + 6);
+    }
+
+    @Test
+    void plants_banana_when_carrying_exactly_one_banana_and_tile_empty() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        t.carry[ResourceType.BANANA.ordinal()] = 1;
+        s.trolls.add(t);
+        int[] budget = {0};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isEqualTo(new Action.Plant(0, TreeType.BANANA));
+    }
+
+    @Test
+    void does_not_plant_when_carry_mixed_with_other_fruit() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        t.carry[ResourceType.BANANA.ordinal()] = 1;
+        t.carry[ResourceType.PLUM.ordinal()] = 1;
+        s.trolls.add(t);
+        int[] budget = {0};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
+    }
+
+    @Test
+    void does_not_plant_when_tile_already_has_tree() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        Troll t = troll(0, 6, 1, 5);
+        t.carry[ResourceType.BANANA.ordinal()] = 1;
+        s.trolls.add(t);
+        Tree existing = new Tree();
+        existing.type = TreeType.PLUM;
+        existing.x = 6;
+        existing.y = 1;
+        existing.size = 2;
+        s.trees.add(existing);
+        int[] budget = {0};
+
+        Action a = BananaFarmer.plan(t, s, budget, new HashSet<>());
+
+        assertThat(a).isNull();
     }
 }
