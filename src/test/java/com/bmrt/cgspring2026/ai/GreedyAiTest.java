@@ -159,6 +159,33 @@ class GreedyAiTest {
     }
 
     @Test
+    void leader_does_not_farm_even_when_adjacent_and_empty() {
+        // 2 trolls with distinct stats → highest score elected LEADER.
+        // Troll id=0 has the highest stats → LEADER.
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+        s.myShackInv[ResourceType.BANANA.ordinal()] = 5;
+        Troll leader = troll(0, 6, 1, 10);
+        leader.movementSpeed = 5;
+        leader.chopPower = 5;
+        Troll local = troll(1, 1, 1, 1);
+        s.trolls.add(leader);
+        s.trolls.add(local);
+        // Provide one mature tree far away so LEADER targets it instead of random-walking.
+        s.trees.add(tree(8, 1, 4));
+
+        List<Action> actions = new GreedyAi().decide(s);
+
+        // The LEADER (id=0) action must NOT be a Pick.
+        Action leaderAction = actions.stream()
+                .filter(a -> a instanceof Action.Move m && m.trollId() == 0
+                        || a instanceof Action.Pick p && p.trollId() == 0
+                        || a instanceof Action.Chop c && c.trollId() == 0)
+                .findFirst()
+                .orElseThrow();
+        assertThat(leaderAction).isNotInstanceOf(Action.Pick.class);
+    }
+
+    @Test
     void full_farming_cycle_emits_expected_actions_per_turn() {
         int bananaIdx = ResourceType.BANANA.ordinal();
         int woodIdx = ResourceType.WOOD.ordinal();
