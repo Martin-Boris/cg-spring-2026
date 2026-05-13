@@ -116,6 +116,13 @@ class BananaFarmerTest {
     }
 
     @Test
+    void is_safe_to_farm_when_no_enemy() {
+        GameState s = openMap(10, 4, 5, 1, 8, 2);
+
+        assertThat(BananaFarmer.isSafeToFarm(6, 1, s)).isTrue();
+    }
+
+    @Test
     void does_not_plant_when_tile_already_has_tree() {
         GameState s = openMap(10, 4, 5, 1, 8, 2);
         Troll t = troll(0, 6, 1, 5);

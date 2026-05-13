@@ -58,4 +58,21 @@ public final class BananaFarmer {
 
         return null;
     }
+
+    static boolean isSafeToFarm(int tileX, int tileY, GameState state) {
+        for (Troll e : state.trolls) {
+            if (e.player == 0) {
+                continue;
+            }
+            if (e.movementSpeed <= 0) {
+                continue;
+            }
+            int d = Math.abs(e.x - tileX) + Math.abs(e.y - tileY);
+            int reach = (d + e.movementSpeed - 1) / e.movementSpeed;
+            if (reach <= 3) {
+                return false;
+            }
+        }
+        return true;
+    }
 }
