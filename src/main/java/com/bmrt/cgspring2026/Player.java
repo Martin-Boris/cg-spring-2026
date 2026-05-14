@@ -1,5 +1,7 @@
 package com.bmrt.cgspring2026;
 
+import com.bmrt.cgspring2026.model.GameState;
+
 import java.util.Scanner;
 
 public class Player {
@@ -9,63 +11,24 @@ public class Player {
 
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
-        int width = in.nextInt();
-        int height = in.nextInt();
-        if (in.hasNextLine()) {
-            in.nextLine();
-        }
-        for (int i = 0; i < height; i++) {
-            String line = in.nextLine();
-        }
+        GameState.readInit(in);
+        GameState state = new GameState();
 
-        // game loop
         while (true) {
-            for (int i = 0; i < 2; i++) {
-                int plum = in.nextInt();
-                int lemon = in.nextInt();
-                int apple = in.nextInt();
-                int banana = in.nextInt();
-                int iron = in.nextInt();
-                int wood = in.nextInt();
-            }
-            int treesCount = in.nextInt();
-            for (int i = 0; i < treesCount; i++) {
-                String type = in.next();
-                int x = in.nextInt();
-                int y = in.nextInt();
-                int size = in.nextInt();
-                int health = in.nextInt();
-                int fruits = in.nextInt();
-                int cooldown = in.nextInt();
-            }
-            int trollsCount = in.nextInt();
-            for (int i = 0; i < trollsCount; i++) {
-                int id = in.nextInt();
-                int player = in.nextInt();
-                int x = in.nextInt();
-                int y = in.nextInt();
-                int movementSpeed = in.nextInt();
-                int carryCapacity = in.nextInt();
-                int harvestPower = in.nextInt();
-                int chopPower = in.nextInt();
-                int carryPlum = in.nextInt();
-                int carryLemon = in.nextInt();
-                int carryApple = in.nextInt();
-                int carryBanana = in.nextInt();
-                int carryIron = in.nextInt();
-                int carryWood = in.nextInt();
-            }
+            long start = System.nanoTime();
+            state.readTurn(in);
 
-            // Write an action using System.out.println()
-            // To debug: System.err.println("Debug messages...");
+            // placeholder — emit WAIT for each own troll
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < state.trollCount; i++) {
+                if (state.trollPlayer[i] != 0) continue;
+                if (sb.length() > 0) sb.append(';');
+                sb.append("WAIT ").append(state.trollId[i] & 0xFF);
+            }
+            System.out.println(sb);
 
-
-            // valid actions:
-            // MOVE <id> <x> <y>
-            // HARVEST <id> - when you are on the same cell as a tree
-            // DROP <id> - when you are next to your shack and carry items
-            System.out.println("MOVE 0 7 7");
+            System.err.println("turn=" + state.turn + " elapsed=" + (System.nanoTime() - start) + "ns");
+            state.turn++;
         }
-
     }
 }
