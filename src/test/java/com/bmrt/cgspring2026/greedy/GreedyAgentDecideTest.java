@@ -58,13 +58,16 @@ class GreedyAgentDecideTest {
     }
 
     @Test void moveTowardsClosestShackAdjacentWhenCarryingWood() {
-        // troll a (5,4), shack a (1,1). Cases adj : (0,1)(2,1)(1,0)(1,2). Plus proche : (1,2) dist=5.
+        // troll a (5,4). Cases adj du shack (1,1) : (2,1)(0,1)(1,2)(1,0).
+        // Distances : (2,1)=6, (0,1)=8, (1,2)=6, (1,0)=8.
+        // (2,1) et (1,2) sont a egalite ; le tie-break "premier rencontre"
+        // selectionne (2,1) selon l'ordre DX={1,-1,0,0}/DY={0,0,1,-1} de ShackAdjacency.
         GameState s = stateWithTroll(5, 4, 2);
         int a = GreedyAgent.decideForTroll(s, 0, -1);
         assertThat(Action.type(a)).isEqualTo((int) ActionType.MOVE);
         assertThat(Action.trollIdx(a)).isEqualTo(0);
-        assertThat(Action.arg1(a)).isEqualTo(1);
-        assertThat(Action.arg2(a)).isEqualTo(2);
+        assertThat(Action.arg1(a)).isEqualTo(2);
+        assertThat(Action.arg2(a)).isEqualTo(1);
     }
 
     @Test void waitWhenNoTreeAvailable() {

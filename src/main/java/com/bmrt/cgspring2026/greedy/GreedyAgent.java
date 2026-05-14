@@ -55,7 +55,7 @@ public final class GreedyAgent {
                 int cx = ShackAdjacency.x[i] & 0xFF;
                 int cy = ShackAdjacency.y[i] & 0xFF;
                 int d  = PathTable.distance(tx, ty, cx, cy);
-                if (d <= bestDist) {
+                if (d < bestDist) {
                     bestDist = d;
                     dropX = cx;
                     dropY = cy;
