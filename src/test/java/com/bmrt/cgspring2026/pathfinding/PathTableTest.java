@@ -85,4 +85,58 @@ class PathTableTest {
         assertThat(PathTable.bfsDist[0]).isEqualTo(5);
         assertThat(PathTable.bfsPrev[9]).isEqualTo(-1);
     }
+
+    @Test void initFillsDistMatrixSymmetrically() {
+        loadTestGrid();
+        PathTable.init();
+        int dAB = PathTable.dist[0][9] & 0xFF;
+        int dBA = PathTable.dist[9][0] & 0xFF;
+        assertThat(dAB).isEqualTo(5);
+        assertThat(dBA).isEqualTo(5);
+    }
+
+    @Test void initSelfDistanceIsZero() {
+        loadTestGrid();
+        PathTable.init();
+        for (int i = 0; i < PathTable.N; i++) {
+            assertThat(PathTable.dist[i][i] & 0xFF).isEqualTo(0);
+        }
+    }
+
+    @Test void initSharesPathReferenceForReversePair() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.paths[0][9]).isSameAs(PathTable.paths[9][0]);
+        assertThat(PathTable.paths[3][7]).isSameAs(PathTable.paths[7][3]);
+    }
+
+    @Test void initStoresPathFromMinToMax() {
+        loadTestGrid();
+        PathTable.init();
+        byte[] p = PathTable.paths[0][9];
+        assertThat(p.length).isEqualTo(6); // dist 5 + 1
+        assertThat(p[0] & 0xFF).isEqualTo(0); // commence par min(0,9)=0
+        assertThat(p[p.length - 1] & 0xFF).isEqualTo(9); // finit par max(0,9)=9
+    }
+
+    @Test void initPathIsContiguousNeighbours() {
+        loadTestGrid();
+        PathTable.init();
+        byte[] p = PathTable.paths[0][9];
+        for (int i = 1; i < p.length; i++) {
+            int a = p[i - 1] & 0xFF;
+            int b = p[i] & 0xFF;
+            int dx = Math.abs((PathTable.cellX[a] & 0xFF) - (PathTable.cellX[b] & 0xFF));
+            int dy = Math.abs((PathTable.cellY[a] & 0xFF) - (PathTable.cellY[b] & 0xFF));
+            assertThat(dx + dy).isEqualTo(1); // 4-connexite
+        }
+    }
+
+    @Test void initSelfPathIsSingleton() {
+        loadTestGrid();
+        PathTable.init();
+        byte[] p = PathTable.paths[3][3];
+        assertThat(p.length).isEqualTo(1);
+        assertThat(p[0] & 0xFF).isEqualTo(3);
+    }
 }

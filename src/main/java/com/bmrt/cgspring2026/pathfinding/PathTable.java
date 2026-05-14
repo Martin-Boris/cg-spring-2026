@@ -42,6 +42,45 @@ public final class PathTable {
         return cellIdAt[y * GameState.width + x] & 0xFF;
     }
 
+    public static byte[][]   dist;    // [N][N] distance, UNREACHABLE si non connecté
+    public static byte[][][] paths;   // [N][N] -> chemin partagé symétriquement
+
+    public static void init() {
+        indexCells();
+        allocateBfsBuffers();
+        dist  = new byte[N][N];
+        paths = new byte[N][N][];
+        for (int src = 0; src < N; src++) {
+            bfs(src);
+            dist[src][src]  = 0;
+            paths[src][src] = new byte[]{ (byte) src };
+            for (int dst = src + 1; dst < N; dst++) {
+                if (bfsDist[dst] == UNREACHABLE) {
+                    dist[src][dst] = (byte) UNREACHABLE;
+                    dist[dst][src] = (byte) UNREACHABLE;
+                    continue;
+                }
+                byte[] p = reconstruct(src, dst);
+                paths[src][dst] = p;
+                paths[dst][src] = p;             // référence partagée — lecture inversée pour dst→src
+                byte d = (byte) (p.length - 1);
+                dist[src][dst] = d;
+                dist[dst][src] = d;
+            }
+        }
+    }
+
+    private static byte[] reconstruct(int src, int dst) {
+        int len = bfsDist[dst] + 1;
+        byte[] path = new byte[len];
+        int cur = dst;
+        for (int i = len - 1; i >= 0; i--) {
+            path[i] = (byte) cur;
+            cur = bfsPrev[cur];
+        }
+        return path;
+    }
+
     public  static int[] bfsDist;   // distance depuis la dernière source BFS, UNREACHABLE sinon
     public  static int[] bfsPrev;   // prédecesseur dans l'arbre BFS, -1 si racine ou non atteint
     private static int[] queue;
