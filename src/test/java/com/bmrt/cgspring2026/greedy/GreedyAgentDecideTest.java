@@ -107,4 +107,100 @@ class GreedyAgentDecideTest {
         int a = GreedyAgent.decideForTroll(s, 0, 0);
         assertThat(Action.type(a)).isEqualTo((int) ActionType.MOVE);
     }
+
+    // --- decide() top-level ---
+
+    @Test void decideEmptyMapReturnsWaitOnly() {
+        GameState s = stateWithTroll(0, 0, 0);
+        s.turn = 5;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        int n = GreedyAgent.decide(s, buf);
+        assertThat(n).isEqualTo(1);
+        assertThat(Action.type(buf[0])).isEqualTo((int) ActionType.WAIT);
+    }
+
+    @Test void decideAssignsClosestFreeTreePerTroll() {
+        GameState s = new GameState();
+        s.turn = 5;
+        s.trollCount = 2;
+        s.trollPlayer[0] = 0;
+        s.trollPlayer[1] = 0;
+        s.trollX[0] = 0; s.trollY[0] = 0;
+        s.trollX[1] = 5; s.trollY[1] = 4;
+        s.treeCount = 2;
+        s.treeX[0] = 0; s.treeY[0] = 4;
+        s.treeX[1] = 5; s.treeY[1] = 0;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        int n = GreedyAgent.decide(s, buf);
+        assertThat(n).isEqualTo(2);
+        assertThat(Action.type(buf[0])).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.arg1(buf[0])).isEqualTo(0);
+        assertThat(Action.arg2(buf[0])).isEqualTo(4);
+        assertThat(Action.type(buf[1])).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.arg1(buf[1])).isEqualTo(5);
+        assertThat(Action.arg2(buf[1])).isEqualTo(0);
+    }
+
+    @Test void decideDoesNotReassignSameTreeTwice() {
+        GameState s = new GameState();
+        s.turn = 5;
+        s.trollCount = 2;
+        s.trollPlayer[0] = 0;
+        s.trollPlayer[1] = 0;
+        s.trollX[0] = 0; s.trollY[0] = 2;
+        s.trollX[1] = 4; s.trollY[1] = 2;
+        s.treeCount = 1;
+        s.treeX[0] = 2; s.treeY[0] = 2;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        GreedyAgent.decide(s, buf);
+        assertThat(Action.type(buf[0])).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.arg1(buf[0])).isEqualTo(2);
+        assertThat(Action.arg2(buf[0])).isEqualTo(2);
+        assertThat(Action.type(buf[1])).isEqualTo((int) ActionType.WAIT);
+    }
+
+    @Test void decideIgnoresEnemyTrolls() {
+        GameState s = new GameState();
+        s.turn = 5;
+        s.trollCount = 2;
+        s.trollPlayer[0] = 1;
+        s.trollPlayer[1] = 0;
+        s.trollX[1] = 0; s.trollY[1] = 0;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        int n = GreedyAgent.decide(s, buf);
+        assertThat(n).isEqualTo(1);
+        assertThat(Action.trollIdx(buf[0])).isEqualTo(1);
+    }
+
+    @Test void decideEmitsTrainAtTurn0WhenAffordable() {
+        GameState s = new GameState();
+        s.turn = 0;
+        s.trollCount = 1;
+        s.trollPlayer[0] = 0;
+        s.trollX[0] = 0; s.trollY[0] = 0;
+        s.shackInventory[ResourceType.PLUM]  = 2;
+        s.shackInventory[ResourceType.LEMON] = 1;
+        s.shackInventory[ResourceType.APPLE] = 1;
+        s.shackInventory[ResourceType.IRON]  = 1;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        int n = GreedyAgent.decide(s, buf);
+        assertThat(n).isEqualTo(2);
+        assertThat(Action.type(buf[0])).isEqualTo((int) ActionType.TRAIN);
+        assertThat(Action.type(buf[1])).isEqualTo((int) ActionType.WAIT);
+    }
+
+    @Test void decideSkipsTrainAfterTurn0() {
+        GameState s = new GameState();
+        s.turn = 1;
+        s.trollCount = 1;
+        s.trollPlayer[0] = 0;
+        s.shackInventory[ResourceType.PLUM]  = 10;
+        s.shackInventory[ResourceType.LEMON] = 10;
+        s.shackInventory[ResourceType.APPLE] = 10;
+        s.shackInventory[ResourceType.IRON]  = 10;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        int n = GreedyAgent.decide(s, buf);
+        assertThat(n).isEqualTo(1);
+        assertThat(Action.type(buf[0])).isNotEqualTo((int) ActionType.TRAIN);
+    }
 }

@@ -1,5 +1,8 @@
 package com.bmrt.cgspring2026;
 
+import com.bmrt.cgspring2026.action.Action;
+import com.bmrt.cgspring2026.greedy.GreedyAgent;
+import com.bmrt.cgspring2026.greedy.ShackAdjacency;
 import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.pathfinding.PathTable;
 
@@ -7,25 +10,25 @@ import java.util.Scanner;
 
 public class Player {
 
-    private static final long FIRST_TURN_BUDGET_MS = 900;
-    private static final long TURN_BUDGET_MS = 45;
-
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
         GameState.readInit(in);
         PathTable.init();
+        ShackAdjacency.init();
+
         GameState state = new GameState();
+        int[] actionBuf = new int[GameState.MAX_TROLLS + 1];
+        StringBuilder sb = new StringBuilder();
 
         while (true) {
             long start = System.nanoTime();
             state.readTurn(in);
 
-            // placeholder — emit WAIT for each own troll
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < state.trollCount; i++) {
-                if (state.trollPlayer[i] != 0) continue;
-                if (sb.length() > 0) sb.append(';');
-                sb.append("WAIT ").append(state.trollId[i] & 0xFF);
+            int n = GreedyAgent.decide(state, actionBuf);
+            sb.setLength(0);
+            for (int i = 0; i < n; i++) {
+                if (i > 0) sb.append(';');
+                sb.append(Action.toCommand(actionBuf[i], state));
             }
             System.out.println(sb);
 

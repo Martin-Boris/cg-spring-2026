@@ -82,5 +82,42 @@ public final class GreedyAgent {
         return false;
     }
 
+    private static final boolean[] treeTaken = new boolean[GameState.MAX_TREES];
+
+    public static int decide(GameState s, int[] outActions) {
+        int count = 0;
+        if (s.turn == 0) {
+            int trainAction = maybeTrain(s);
+            if (trainAction != -1) {
+                outActions[count++] = trainAction;
+            }
+        }
+        java.util.Arrays.fill(treeTaken, 0, s.treeCount, false);
+        for (int i = 0; i < s.trollCount; i++) {
+            if (s.trollPlayer[i] != 0) continue;
+            int treeIdx = pickClosestFreeTree(s, i);
+            if (treeIdx >= 0) treeTaken[treeIdx] = true;
+            outActions[count++] = decideForTroll(s, i, treeIdx);
+        }
+        return count;
+    }
+
+    private static int pickClosestFreeTree(GameState s, int trollIdx) {
+        int tx = s.trollX[trollIdx] & 0xFF;
+        int ty = s.trollY[trollIdx] & 0xFF;
+        int best = -1;
+        int bestDist = Integer.MAX_VALUE;
+        for (int t = 0; t < s.treeCount; t++) {
+            if (treeTaken[t]) continue;
+            int d = PathTable.distance(tx, ty, s.treeX[t] & 0xFF, s.treeY[t] & 0xFF);
+            if (d == PathTable.UNREACHABLE) continue;
+            if (d < bestDist) {
+                bestDist = d;
+                best = t;
+            }
+        }
+        return best;
+    }
+
     private GreedyAgent() {}
 }
