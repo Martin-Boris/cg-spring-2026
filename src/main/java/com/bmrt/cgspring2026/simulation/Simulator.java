@@ -11,15 +11,67 @@ public final class Simulator {
 
     private static final byte[] WATER_BOOST = { 5, 5, 7, 2 };
 
+    private static final boolean[] harvestTreeProcessed = new boolean[GameState.MAX_TREES];
+    private static final int[]     harvestSharedTrolls  = new int[GameState.MAX_TROLLS];
+
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
+        applyHarvests(s, actions, n);
         applyPicks(s, actions, n);
         applyDrops(s, actions, n);
         applyMines(s, actions, n);
         plantTick(s);
         compactDeadTrees(s);
         s.turn++;
+    }
+
+    static void applyHarvests(GameState s, int[] actions, int n) {
+        for (int t = 0; t < s.treeCount; t++) harvestTreeProcessed[t] = false;
+        for (int i = 0; i < n; i++) {
+            int a = actions[i];
+            if (Action.type(a) != ActionType.HARVEST) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            int tx = s.trollX[idx] & 0xFF, ty = s.trollY[idx] & 0xFF;
+            int treeIdx = findTreeAt(s, tx, ty);
+            if (treeIdx < 0) continue;
+            if (harvestTreeProcessed[treeIdx]) continue;
+            // collect all HARVEST actions targeting this tree, in actions[] order
+            int shared = 0;
+            for (int j = i; j < n; j++) {
+                int b = actions[j];
+                if (Action.type(b) != ActionType.HARVEST) continue;
+                int jdx = Action.trollIdx(b);
+                if (jdx >= s.trollCount) continue;
+                int jx = s.trollX[jdx] & 0xFF, jy = s.trollY[jdx] & 0xFF;
+                if (jx == tx && jy == ty) harvestSharedTrolls[shared++] = jdx;
+            }
+            harvestTreeProcessed[treeIdx] = true;
+            int type = s.treeType[treeIdx] & 0xFF;
+            for (int power = 1; power <= 3; power++) {
+                if (s.treeFruits[treeIdx] == 0) break;
+                for (int k = 0; k < shared; k++) {
+                    int trollIdx = harvestSharedTrolls[k];
+                    int hp = s.trollHP[trollIdx] & 0xFF;
+                    if (power > hp) continue;
+                    int invBase = trollIdx * ResourceType.COUNT;
+                    int cc = s.trollCC[trollIdx] & 0xFF;
+                    int total = 0;
+                    for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
+                    if (total >= cc) continue;
+                    s.trollInventory[invBase + type]++;
+                    if (s.treeFruits[treeIdx] > 0) s.treeFruits[treeIdx]--;
+                }
+            }
+        }
+    }
+
+    static int findTreeAt(GameState s, int x, int y) {
+        for (int i = 0; i < s.treeCount; i++) {
+            if ((s.treeX[i] & 0xFF) == x && (s.treeY[i] & 0xFF) == y && s.treeHealth[i] > 0) return i;
+        }
+        return -1;
     }
 
     static void applyPicks(GameState s, int[] actions, int n) {
