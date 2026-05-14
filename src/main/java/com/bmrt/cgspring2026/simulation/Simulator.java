@@ -1,12 +1,65 @@
 package com.bmrt.cgspring2026.simulation;
 
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.TileType;
+import com.bmrt.cgspring2026.model.TreeType;
 
 public final class Simulator {
+
+    private static final byte[] WATER_BOOST = { 5, 5, 7, 2 };
 
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
+        plantTick(s);
         s.turn++;
+    }
+
+    static void plantTick(GameState s) {
+        for (int i = 0; i < s.treeCount; i++) {
+            if (s.treeCooldown[i] > 0) s.treeCooldown[i]--;
+            if (s.treeCooldown[i] == 0 && s.treeHealth[i] > 0) {
+                int type = s.treeType[i] & 0xFF;
+                if (s.treeSize[i] < 4) {
+                    s.treeSize[i]++;
+                    s.treeHealth[i] += deltaHealth(type);
+                    s.treeCooldown[i] = growthCooldown(s, i, type);
+                } else if (s.treeFruits[i] < 3) {
+                    s.treeFruits[i]++;
+                    s.treeCooldown[i] = growthCooldown(s, i, type);
+                }
+            }
+        }
+    }
+
+    private static byte deltaHealth(int treeType) {
+        // PLUM=2, LEMON=2, APPLE=3, BANANA=1 (mirrors Constants.PLANT_DELTA_HEALTH)
+        switch (treeType) {
+            case TreeType.PLUM:   return 2;
+            case TreeType.LEMON:  return 2;
+            case TreeType.APPLE:  return 3;
+            case TreeType.BANANA: return 1;
+            default: throw new IllegalStateException();
+        }
+    }
+
+    private static byte growthCooldown(GameState s, int treeIdx, int treeType) {
+        int base = TreeType.COOLDOWN_NORMAL[treeType] & 0xFF;
+        int x = s.treeX[treeIdx] & 0xFF;
+        int y = s.treeY[treeIdx] & 0xFF;
+        if (nearWater(x, y)) base -= WATER_BOOST[treeType] & 0xFF;
+        return (byte) base;
+    }
+
+    private static boolean nearWater(int x, int y) {
+        return tileEquals(x + 1, y, TileType.WATER)
+            || tileEquals(x - 1, y, TileType.WATER)
+            || tileEquals(x, y + 1, TileType.WATER)
+            || tileEquals(x, y - 1, TileType.WATER);
+    }
+
+    private static boolean tileEquals(int x, int y, byte type) {
+        if (x < 0 || x >= GameState.width || y < 0 || y >= GameState.height) return false;
+        return GameState.tiles[y * GameState.width + x] == type;
     }
 }
