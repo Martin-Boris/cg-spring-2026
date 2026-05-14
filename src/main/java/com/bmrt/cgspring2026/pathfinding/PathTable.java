@@ -42,5 +42,45 @@ public final class PathTable {
         return cellIdAt[y * GameState.width + x] & 0xFF;
     }
 
+    public  static int[] bfsDist;   // distance depuis la dernière source BFS, UNREACHABLE sinon
+    public  static int[] bfsPrev;   // prédecesseur dans l'arbre BFS, -1 si racine ou non atteint
+    private static int[] queue;
+
+    private static final int[] DX = { 1, -1, 0,  0 };
+    private static final int[] DY = { 0,  0, 1, -1 };
+
+    static void allocateBfsBuffers() {
+        queue   = new int[N];
+        bfsDist = new int[N];
+        bfsPrev = new int[N];
+    }
+
+    static void bfs(int src) {
+        java.util.Arrays.fill(bfsDist, UNREACHABLE);
+        java.util.Arrays.fill(bfsPrev, -1);
+        int W = GameState.width;
+        int H = GameState.height;
+        bfsDist[src] = 0;
+        int head = 0, tail = 0;
+        queue[tail++] = src;
+        while (head < tail) {
+            int cur = queue[head++];
+            int cx = cellX[cur] & 0xFF;
+            int cy = cellY[cur] & 0xFF;
+            int d  = bfsDist[cur];
+            for (int k = 0; k < 4; k++) {
+                int nx = cx + DX[k];
+                int ny = cy + DY[k];
+                if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+                int nid = cellIdAt[ny * W + nx] & 0xFF;
+                if (nid == UNREACHABLE) continue;
+                if (bfsDist[nid] != UNREACHABLE) continue;
+                bfsDist[nid] = d + 1;
+                bfsPrev[nid] = cur;
+                queue[tail++] = nid;
+            }
+        }
+    }
+
     private PathTable() {}
 }

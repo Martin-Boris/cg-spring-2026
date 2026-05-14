@@ -47,4 +47,42 @@ class PathTableTest {
         assertThat(PathTable.cellX[5] & 0xFF).isEqualTo(3);
         assertThat(PathTable.cellY[5] & 0xFF).isEqualTo(1);
     }
+
+    @Test void bfsFromCornerComputesDistances() {
+        loadTestGrid();
+        PathTable.indexCells();
+        PathTable.allocateBfsBuffers();
+        PathTable.bfs(0); // source = (0,0)
+        // (0,0)=0, (1,0)=1, (2,0)=2, (3,0)=3 distances 0,1,2,3
+        assertThat(PathTable.bfsDist[0]).isEqualTo(0);
+        assertThat(PathTable.bfsDist[1]).isEqualTo(1);
+        assertThat(PathTable.bfsDist[2]).isEqualTo(2);
+        assertThat(PathTable.bfsDist[3]).isEqualTo(3);
+        // (0,1)=4 dist 1, (3,1)=5 dist 4 (contourne via (3,0))
+        assertThat(PathTable.bfsDist[4]).isEqualTo(1);
+        assertThat(PathTable.bfsDist[5]).isEqualTo(4);
+        // (3,2)=9 dist 5
+        assertThat(PathTable.bfsDist[9]).isEqualTo(5);
+    }
+
+    @Test void bfsRecordsPredecessors() {
+        loadTestGrid();
+        PathTable.indexCells();
+        PathTable.allocateBfsBuffers();
+        PathTable.bfs(0);
+        assertThat(PathTable.bfsPrev[0]).isEqualTo(-1); // source
+        assertThat(PathTable.bfsPrev[1]).isEqualTo(0);  // (1,0) <- (0,0)
+        assertThat(PathTable.bfsPrev[4]).isEqualTo(0);  // (0,1) <- (0,0)
+    }
+
+    @Test void bfsResetsBetweenCalls() {
+        loadTestGrid();
+        PathTable.indexCells();
+        PathTable.allocateBfsBuffers();
+        PathTable.bfs(0);
+        PathTable.bfs(9); // source = (3,2)
+        assertThat(PathTable.bfsDist[9]).isEqualTo(0);
+        assertThat(PathTable.bfsDist[0]).isEqualTo(5);
+        assertThat(PathTable.bfsPrev[9]).isEqualTo(-1);
+    }
 }
