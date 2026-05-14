@@ -14,10 +14,14 @@ public final class Simulator {
     private static final boolean[] harvestTreeProcessed = new boolean[GameState.MAX_TREES];
     private static final int[]     harvestSharedTrolls  = new int[GameState.MAX_TROLLS];
 
+    private static final boolean[] plantCellProcessed = new boolean[GameState.MAX_TROLLS + 8];
+    private static final int[]     plantTypeBuf       = new int[GameState.MAX_TROLLS];
+
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
         applyHarvests(s, actions, n);
+        applyPlants(s, actions, n);
         applyPicks(s, actions, n);
         applyDrops(s, actions, n);
         applyMines(s, actions, n);
@@ -92,6 +96,70 @@ public final class Simulator {
             if (s.shackInventory[shackBase + type] <= 0) continue;
             s.shackInventory[shackBase + type]--;
             s.trollInventory[invBase + type]++;
+        }
+    }
+
+    static void applyPlants(GameState s, int[] actions, int n) {
+        for (int i = 0; i < n; i++) plantCellProcessed[i] = false;
+        for (int i = 0; i < n; i++) {
+            if (plantCellProcessed[i]) continue;
+            int a = actions[i];
+            if (Action.type(a) != ActionType.PLANT) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            int tx = s.trollX[idx] & 0xFF, ty = s.trollY[idx] & 0xFF;
+            // skip if not grass, or already a tree present
+            if (GameState.tiles[ty * GameState.width + tx] != TileType.GRASS) continue;
+            if (findTreeAt(s, tx, ty) >= 0) continue;
+            // collect concurrent PLANT actions on same cell
+            int firstType = Action.arg1(a);
+            boolean contradictory = false;
+            int sharedCount = 0;
+            int[] sharedIdx = harvestSharedTrolls; // reuse buffer
+            int[] sharedType = plantTypeBuf;
+            for (int j = i; j < n; j++) {
+                int b = actions[j];
+                if (Action.type(b) != ActionType.PLANT) continue;
+                int jdx = Action.trollIdx(b);
+                if (jdx >= s.trollCount) continue;
+                int jx = s.trollX[jdx] & 0xFF, jy = s.trollY[jdx] & 0xFF;
+                if (jx != tx || jy != ty) continue;
+                // parse-time: troll must have the seed
+                int jtype = Action.arg1(b);
+                if (s.trollInventory[jdx * ResourceType.COUNT + jtype] <= 0) continue;
+                sharedIdx[sharedCount]  = jdx;
+                sharedType[sharedCount] = jtype;
+                if (jtype != firstType) contradictory = true;
+                sharedCount++;
+                plantCellProcessed[j] = true;
+            }
+            if (sharedCount == 0 || contradictory) continue;
+            // all agree; each loses a seed; exactly one tree is created
+            int treeType = firstType;
+            int newIdx = s.treeCount++;
+            s.treeType[newIdx]     = (byte) treeType;
+            s.treeX[newIdx]        = (byte) tx;
+            s.treeY[newIdx]        = (byte) ty;
+            s.treeSize[newIdx]     = 0;
+            s.treeHealth[newIdx]   = (byte) initialPlantHealth(treeType);
+            s.treeFruits[newIdx]   = 0;
+            s.treeCooldown[newIdx] = 0;
+            for (int k = 0; k < sharedCount; k++) {
+                int jdx = sharedIdx[k];
+                int jtype = sharedType[k];
+                s.trollInventory[jdx * ResourceType.COUNT + jtype]--;
+            }
+        }
+    }
+
+    private static int initialPlantHealth(int treeType) {
+        // FINAL - DELTA * MAX_SIZE: PLUM=12-8=4, LEMON=12-8=4, APPLE=20-12=8, BANANA=6-4=2
+        switch (treeType) {
+            case TreeType.PLUM:   return 4;
+            case TreeType.LEMON:  return 4;
+            case TreeType.APPLE:  return 8;
+            case TreeType.BANANA: return 2;
+            default: throw new IllegalStateException();
         }
     }
 
