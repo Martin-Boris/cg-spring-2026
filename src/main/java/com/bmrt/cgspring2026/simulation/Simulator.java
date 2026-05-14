@@ -6,6 +6,7 @@ import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.model.ResourceType;
 import com.bmrt.cgspring2026.model.TileType;
 import com.bmrt.cgspring2026.model.TreeType;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
 
 public final class Simulator {
 
@@ -22,6 +23,7 @@ public final class Simulator {
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
+        applyMoves(s, actions, n);
         applyHarvests(s, actions, n);
         applyPlants(s, actions, n);
         applyChops(s, actions, n);
@@ -32,6 +34,48 @@ public final class Simulator {
         plantTick(s);
         compactDeadTrees(s);
         s.turn++;
+    }
+
+    static void applyMoves(GameState s, int[] actions, int n) {
+        for (int i = 0; i < n; i++) {
+            int a = actions[i];
+            if (Action.type(a) != ActionType.MOVE) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            int tx = Action.arg1(a);
+            int ty = Action.arg2(a);
+            if (tx < 0 || tx >= GameState.width || ty < 0 || ty >= GameState.height) continue;
+            int fromX = s.trollX[idx] & 0xFF;
+            int fromY = s.trollY[idx] & 0xFF;
+            int speed = s.trollMS[idx] & 0xFF;
+            stepTowards(s, idx, fromX, fromY, tx, ty, speed);
+        }
+    }
+
+    static void stepTowards(GameState s, int trollIdx, int fromX, int fromY, int toX, int toY, int speed) {
+        if (fromX == toX && fromY == toY) return;
+        int fromId = PathTable.cellId(fromX, fromY);
+        int toId   = PathTable.cellId(toX, toY);
+        if (fromId == PathTable.UNREACHABLE) return;
+        if (toId   == PathTable.UNREACHABLE) return; // simplified: unreachable target -> stay
+        int dist = PathTable.distance(fromId, toId);
+        if (dist == PathTable.UNREACHABLE) return;
+        int k = Math.min(speed, dist);
+        if (k == 0) return;
+        int rawIdx = PathTable.stepAlong(fromX, fromY, toX, toY, k);
+        int newX = rawIdx % GameState.width;
+        int newY = rawIdx / GameState.width;
+        // refuse to land on a non-walkable cell (e.g., shack endpoint at k=dist)
+        if (GameState.tiles[newY * GameState.width + newX] != TileType.GRASS) {
+            // step back by 1
+            if (k <= 1) return;
+            rawIdx = PathTable.stepAlong(fromX, fromY, toX, toY, k - 1);
+            newX = rawIdx % GameState.width;
+            newY = rawIdx / GameState.width;
+            if (GameState.tiles[newY * GameState.width + newX] != TileType.GRASS) return;
+        }
+        s.trollX[trollIdx] = (byte) newX;
+        s.trollY[trollIdx] = (byte) newY;
     }
 
     static void applyHarvests(GameState s, int[] actions, int n) {
