@@ -31,7 +31,12 @@
       "Bash(cd \"C:/Users/bmartin/Documents/projet perso/cg-winter-2026\" && mvn package -q -Dmaven.test.skip=true 2>&1 && cp target/cg-summer-2024-1.0-SNAPSHOT.jar fineTuning/EXP-07-RunB.jar && echo \"OK\")",
       "Bash(cd:*)",
       "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\" -q)",
-      "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\")"
+      "Bash(mvn exec:java -Dexec.mainClass=\"com.bmrt.cgwinter2026.builder.FileBuilder\" -Dexec.args=\"src/main/java/com/bmrt/cgwinter2026/Player.java\")",
+      "Bash(mvn -q -Dtest=PathTableTest test)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(mvn -q -Dtest=PathTableInitBudgetTest test)",
+      "Bash(mvn -q test)"
     ]
   }
 }
