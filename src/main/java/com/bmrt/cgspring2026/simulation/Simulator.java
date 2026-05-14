@@ -36,46 +36,181 @@ public final class Simulator {
         s.turn++;
     }
 
+    // Scratch: per-troll requested target (or -1 = no move / stationary)
+    private static final int[] moveTargetX = new int[GameState.MAX_TROLLS];
+    private static final int[] moveTargetY = new int[GameState.MAX_TROLLS];
+    private static final boolean[] hasMove = new boolean[GameState.MAX_TROLLS];
+
+    // Per-player resolver scratch
+    private static final int[] resolverIdx = new int[GameState.MAX_TROLLS];
+    private static final boolean[] resolverDone = new boolean[GameState.MAX_TROLLS];
+
     static void applyMoves(GameState s, int[] actions, int n) {
+        // Reset & compute pre-resolved targets
+        for (int i = 0; i < s.trollCount; i++) {
+            hasMove[i] = false;
+            moveTargetX[i] = s.trollX[i] & 0xFF;
+            moveTargetY[i] = s.trollY[i] & 0xFF;
+        }
         for (int i = 0; i < n; i++) {
             int a = actions[i];
             if (Action.type(a) != ActionType.MOVE) continue;
             int idx = Action.trollIdx(a);
             if (idx >= s.trollCount) continue;
-            int tx = Action.arg1(a);
-            int ty = Action.arg2(a);
+            int tx = Action.arg1(a), ty = Action.arg2(a);
             if (tx < 0 || tx >= GameState.width || ty < 0 || ty >= GameState.height) continue;
-            int fromX = s.trollX[idx] & 0xFF;
-            int fromY = s.trollY[idx] & 0xFF;
+            int fromX = s.trollX[idx] & 0xFF, fromY = s.trollY[idx] & 0xFF;
             int speed = s.trollMS[idx] & 0xFF;
-            stepTowards(s, idx, fromX, fromY, tx, ty, speed);
+            int[] dest = preResolveTarget(fromX, fromY, tx, ty, speed);
+            if (dest == null) continue;
+            hasMove[idx] = true;
+            moveTargetX[idx] = dest[0];
+            moveTargetY[idx] = dest[1];
+        }
+        // Resolve per player
+        for (int player = 0; player < 2; player++) resolvePlayerMoves(s, player);
+    }
+
+    // Returns {x,y} or null. Uses PathTable.stepAlong; never lands on non-grass.
+    private static final int[] preResolveDest = new int[2];
+    private static int[] preResolveTarget(int fromX, int fromY, int toX, int toY, int speed) {
+        if (fromX == toX && fromY == toY) return null;
+        int fromId = PathTable.cellId(fromX, fromY);
+        int toId   = PathTable.cellId(toX, toY);
+        if (fromId == PathTable.UNREACHABLE || toId == PathTable.UNREACHABLE) return null;
+        int dist = PathTable.distance(fromId, toId);
+        if (dist == PathTable.UNREACHABLE) return null;
+        int k = Math.min(speed, dist);
+        if (k == 0) return null;
+        int raw = PathTable.stepAlong(fromX, fromY, toX, toY, k);
+        int x = raw % GameState.width, y = raw / GameState.width;
+        if (GameState.tiles[y * GameState.width + x] != TileType.GRASS) {
+            if (k <= 1) return null;
+            raw = PathTable.stepAlong(fromX, fromY, toX, toY, k - 1);
+            x = raw % GameState.width; y = raw / GameState.width;
+            if (GameState.tiles[y * GameState.width + x] != TileType.GRASS) return null;
+        }
+        preResolveDest[0] = x;
+        preResolveDest[1] = y;
+        return preResolveDest;
+    }
+
+    private static void resolvePlayerMoves(GameState s, int player) {
+        // Collect player's trolls
+        int count = 0;
+        for (int i = 0; i < s.trollCount; i++) {
+            if ((s.trollPlayer[i] & 0xFF) != player) continue;
+            resolverIdx[count] = i;
+            resolverDone[i] = !hasMove[i] || (moveTargetX[i] == (s.trollX[i] & 0xFF)
+                                            && moveTargetY[i] == (s.trollY[i] & 0xFF));
+            count++;
+        }
+        // Mark occupied[] = current positions of all player's trolls (including stationary)
+        int W = GameState.width;
+        boolean[] occupied = ensureOccupiedBuffer(W * GameState.height);
+        for (int i = 0; i < occupied.length; i++) occupied[i] = false;
+        for (int k = 0; k < count; k++) {
+            int idx = resolverIdx[k];
+            occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = true;
+        }
+        boolean progressed = true;
+        boolean allowBlocked = false;
+        int[] freq = ensureFreqBuffer(W * GameState.height);
+        while (progressed) {
+            progressed = false;
+            // recompute target frequency among undone trolls
+            for (int i = 0; i < freq.length; i++) freq[i] = 0;
+            for (int k = 0; k < count; k++) {
+                int idx = resolverIdx[k];
+                if (resolverDone[idx]) continue;
+                freq[moveTargetY[idx] * W + moveTargetX[idx]]++;
+            }
+            // single-target moves into free cells
+            for (int k = 0; k < count; k++) {
+                int idx = resolverIdx[k];
+                if (resolverDone[idx]) continue;
+                int destCell = moveTargetY[idx] * W + moveTargetX[idx];
+                if (!occupied[destCell] && (allowBlocked || freq[destCell] == 1)) {
+                    occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = false;
+                    s.trollX[idx] = (byte) moveTargetX[idx];
+                    s.trollY[idx] = (byte) moveTargetY[idx];
+                    occupied[destCell] = true;
+                    resolverDone[idx] = true;
+                    progressed = true;
+                    allowBlocked = false;
+                }
+            }
+            if (progressed) continue;
+            // cycle detection
+            for (int startK = 0; startK < count && !progressed; startK++) {
+                int startIdx = resolverIdx[startK];
+                if (resolverDone[startIdx]) continue;
+                int cur = startIdx;
+                int hops = 0;
+                int found = -1;
+                while (hops <= count) {
+                    int destCell = moveTargetY[cur] * W + moveTargetX[cur];
+                    // find a troll whose CURRENT cell == destCell, undone, same player
+                    int next = -1;
+                    for (int k = 0; k < count; k++) {
+                        int j = resolverIdx[k];
+                        if (resolverDone[j]) continue;
+                        if ((s.trollY[j] & 0xFF) * W + (s.trollX[j] & 0xFF) == destCell) { next = j; break; }
+                    }
+                    if (next < 0) break;
+                    if (next == startIdx) { found = hops; break; }
+                    cur = next; hops++;
+                }
+                if (found >= 0) {
+                    // execute the cycle
+                    int cur2 = startIdx;
+                    int[] cycle = cycleBuf;
+                    int len = 0;
+                    cycle[len++] = cur2;
+                    for (int h = 0; h <= found; h++) {
+                        int destCell = moveTargetY[cur2] * W + moveTargetX[cur2];
+                        int next = -1;
+                        for (int k = 0; k < count; k++) {
+                            int j = resolverIdx[k];
+                            if (resolverDone[j]) continue;
+                            if ((s.trollY[j] & 0xFF) * W + (s.trollX[j] & 0xFF) == destCell) { next = j; break; }
+                        }
+                        if (next < 0 || next == startIdx) break;
+                        cycle[len++] = next;
+                        cur2 = next;
+                    }
+                    for (int c = 0; c < len; c++) {
+                        int idx = cycle[c];
+                        occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = false;
+                    }
+                    for (int c = 0; c < len; c++) {
+                        int idx = cycle[c];
+                        s.trollX[idx] = (byte) moveTargetX[idx];
+                        s.trollY[idx] = (byte) moveTargetY[idx];
+                        occupied[moveTargetY[idx] * W + moveTargetX[idx]] = true;
+                        resolverDone[idx] = true;
+                    }
+                    progressed = true;
+                }
+            }
+            if (!progressed && !allowBlocked) {
+                allowBlocked = true;
+                progressed = true; // re-enter loop with relaxed rule
+            }
         }
     }
 
-    static void stepTowards(GameState s, int trollIdx, int fromX, int fromY, int toX, int toY, int speed) {
-        if (fromX == toX && fromY == toY) return;
-        int fromId = PathTable.cellId(fromX, fromY);
-        int toId   = PathTable.cellId(toX, toY);
-        if (fromId == PathTable.UNREACHABLE) return;
-        if (toId   == PathTable.UNREACHABLE) return; // simplified: unreachable target -> stay
-        int dist = PathTable.distance(fromId, toId);
-        if (dist == PathTable.UNREACHABLE) return;
-        int k = Math.min(speed, dist);
-        if (k == 0) return;
-        int rawIdx = PathTable.stepAlong(fromX, fromY, toX, toY, k);
-        int newX = rawIdx % GameState.width;
-        int newY = rawIdx / GameState.width;
-        // refuse to land on a non-walkable cell (e.g., shack endpoint at k=dist)
-        if (GameState.tiles[newY * GameState.width + newX] != TileType.GRASS) {
-            // step back by 1
-            if (k <= 1) return;
-            rawIdx = PathTable.stepAlong(fromX, fromY, toX, toY, k - 1);
-            newX = rawIdx % GameState.width;
-            newY = rawIdx / GameState.width;
-            if (GameState.tiles[newY * GameState.width + newX] != TileType.GRASS) return;
-        }
-        s.trollX[trollIdx] = (byte) newX;
-        s.trollY[trollIdx] = (byte) newY;
+    private static boolean[] occupiedBuf;
+    private static int[]     freqBuf;
+    private static final int[] cycleBuf = new int[GameState.MAX_TROLLS];
+
+    private static boolean[] ensureOccupiedBuffer(int size) {
+        if (occupiedBuf == null || occupiedBuf.length < size) occupiedBuf = new boolean[size];
+        return occupiedBuf;
+    }
+    private static int[] ensureFreqBuffer(int size) {
+        if (freqBuf == null || freqBuf.length < size) freqBuf = new int[size];
+        return freqBuf;
     }
 
     static void applyHarvests(GameState s, int[] actions, int n) {

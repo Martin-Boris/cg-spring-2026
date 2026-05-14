@@ -84,4 +84,59 @@ class SimulatorMoveTest {
         // Either the troll stayed (manhattan from start = anything) or moved towards: just check tile is walkable.
         assertThat(GameState.tiles[finalY * GameState.width + finalX]).isIn(TileType.GRASS);
     }
+
+    @Test void sameTeamTwoTrollsCannotEndOnSameCell() {
+        GameState s = new GameState();
+        int t1 = placeTroll(s, 0, 2, 3, 5);
+        int t2 = placeTroll(s, 0, 4, 3, 5);
+        int[] acts = { Action.move(t1, 3, 3), Action.move(t2, 3, 3) };
+        Simulator.tick(s, acts, 2);
+        // Exactly one of the two trolls reached (3,3); the other stayed put.
+        int reached = 0;
+        if ((s.trollX[t1] & 0xFF) == 3 && (s.trollY[t1] & 0xFF) == 3) reached++;
+        if ((s.trollX[t2] & 0xFF) == 3 && (s.trollY[t2] & 0xFF) == 3) reached++;
+        assertThat(reached).isEqualTo(1);
+        // The one that didn't reach is still at its original cell
+        boolean t1Reached = (s.trollX[t1] & 0xFF) == 3 && (s.trollY[t1] & 0xFF) == 3;
+        if (t1Reached) {
+            assertThat(s.trollX[t2] & 0xFF).isEqualTo(4);
+            assertThat(s.trollY[t2] & 0xFF).isEqualTo(3);
+        } else {
+            assertThat(s.trollX[t1] & 0xFF).isEqualTo(2);
+            assertThat(s.trollY[t1] & 0xFF).isEqualTo(3);
+        }
+    }
+
+    @Test void sameTeamSwapPositions() {
+        GameState s = new GameState();
+        int t1 = placeTroll(s, 0, 2, 3, 5);
+        int t2 = placeTroll(s, 0, 3, 3, 5);
+        int[] acts = { Action.move(t1, 3, 3), Action.move(t2, 2, 3) };
+        Simulator.tick(s, acts, 2);
+        assertThat(s.trollX[t1] & 0xFF).isEqualTo(3);
+        assertThat(s.trollX[t2] & 0xFF).isEqualTo(2);
+    }
+
+    @Test void differentTeamsCanShareCell() {
+        GameState s = new GameState();
+        int t1 = placeTroll(s, 0, 2, 3, 5);
+        int t2 = placeTroll(s, 1, 4, 3, 5);
+        int[] acts = { Action.move(t1, 3, 3), Action.move(t2, 3, 3) };
+        Simulator.tick(s, acts, 2);
+        assertThat(s.trollX[t1] & 0xFF).isEqualTo(3);
+        assertThat(s.trollY[t1] & 0xFF).isEqualTo(3);
+        assertThat(s.trollX[t2] & 0xFF).isEqualTo(3);
+        assertThat(s.trollY[t2] & 0xFF).isEqualTo(3);
+    }
+
+    @Test void stationaryTrollBlocksTeamMate() {
+        GameState s = new GameState();
+        int t1 = placeTroll(s, 0, 3, 3, 5);
+        int t2 = placeTroll(s, 0, 2, 3, 5);
+        // t1 has no MOVE -> stays at (3,3); t2 tries to move to (3,3) -> blocked.
+        int[] acts = { Action.move(t2, 3, 3) };
+        Simulator.tick(s, acts, 1);
+        assertThat(s.trollX[t1] & 0xFF).isEqualTo(3);
+        assertThat(s.trollX[t2] & 0xFF).isEqualTo(2);
+    }
 }
