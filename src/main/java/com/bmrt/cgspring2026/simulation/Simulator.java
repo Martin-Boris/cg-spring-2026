@@ -17,11 +17,14 @@ public final class Simulator {
     private static final boolean[] plantCellProcessed = new boolean[GameState.MAX_TROLLS + 8];
     private static final int[]     plantTypeBuf       = new int[GameState.MAX_TROLLS];
 
+    private static final boolean[] chopTreeProcessed = new boolean[GameState.MAX_TREES];
+
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
         applyHarvests(s, actions, n);
         applyPlants(s, actions, n);
+        applyChops(s, actions, n);
         applyPicks(s, actions, n);
         applyDrops(s, actions, n);
         applyMines(s, actions, n);
@@ -76,6 +79,55 @@ public final class Simulator {
             if ((s.treeX[i] & 0xFF) == x && (s.treeY[i] & 0xFF) == y && s.treeHealth[i] > 0) return i;
         }
         return -1;
+    }
+
+    static void applyChops(GameState s, int[] actions, int n) {
+        for (int t = 0; t < s.treeCount; t++) chopTreeProcessed[t] = false;
+        for (int i = 0; i < n; i++) {
+            int a = actions[i];
+            if (Action.type(a) != ActionType.CHOP) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            if ((s.trollCP[idx] & 0xFF) == 0) continue;
+            int tx = s.trollX[idx] & 0xFF, ty = s.trollY[idx] & 0xFF;
+            int treeIdx = findTreeAt(s, tx, ty);
+            if (treeIdx < 0) continue;
+            if (chopTreeProcessed[treeIdx]) continue;
+            // collect concurrent CHOP actions on this tree
+            int shared = 0;
+            for (int j = i; j < n; j++) {
+                int b = actions[j];
+                if (Action.type(b) != ActionType.CHOP) continue;
+                int jdx = Action.trollIdx(b);
+                if (jdx >= s.trollCount) continue;
+                if ((s.trollCP[jdx] & 0xFF) == 0) continue;
+                if ((s.trollX[jdx] & 0xFF) != tx || (s.trollY[jdx] & 0xFF) != ty) continue;
+                harvestSharedTrolls[shared++] = jdx;
+            }
+            chopTreeProcessed[treeIdx] = true;
+            // damage sequentially
+            for (int k = 0; k < shared; k++) {
+                int dmg = s.trollCP[harvestSharedTrolls[k]] & 0xFF;
+                int h = (s.treeHealth[treeIdx] & 0xFF) - dmg;
+                s.treeHealth[treeIdx] = (byte) Math.max(h, 0);
+            }
+            if (s.treeHealth[treeIdx] != 0) continue;
+            // distribute wood
+            int size = s.treeSize[treeIdx] & 0xFF;
+            int remaining = size;
+            for (int round = 0; round < size && remaining > 0; round++) {
+                for (int k = 0; k < shared; k++) {
+                    int trollIdx = harvestSharedTrolls[k];
+                    int invBase = trollIdx * ResourceType.COUNT;
+                    int cc = s.trollCC[trollIdx] & 0xFF;
+                    int total = 0;
+                    for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
+                    if (total >= cc) continue;
+                    s.trollInventory[invBase + ResourceType.WOOD]++;
+                    remaining--;
+                }
+            }
+        }
     }
 
     static void applyPicks(GameState s, int[] actions, int n) {
