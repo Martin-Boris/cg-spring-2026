@@ -139,4 +139,61 @@ class PathTableTest {
         assertThat(p.length).isEqualTo(1);
         assertThat(p[0] & 0xFF).isEqualTo(3);
     }
+
+    @Test void distanceById() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.distance(0, 9)).isEqualTo(5);
+        assertThat(PathTable.distance(9, 0)).isEqualTo(5);
+        assertThat(PathTable.distance(3, 3)).isEqualTo(0);
+    }
+
+    @Test void distanceByCoord() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.distance(0, 0, 3, 2)).isEqualTo(5);
+        assertThat(PathTable.distance(3, 2, 0, 0)).isEqualTo(5);
+    }
+
+    @Test void stepAlongForwardReadsPathDirectly() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.stepAlong(0, 9, 0)).isEqualTo(0); // etape 0 = source
+        assertThat(PathTable.stepAlong(0, 9, 5)).isEqualTo(9); // etape 5 = destination
+    }
+
+    @Test void stepAlongReverseReadsPathBackward() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.stepAlong(9, 0, 0)).isEqualTo(9); // etape 0 = source = 9
+        assertThat(PathTable.stepAlong(9, 0, 5)).isEqualTo(0); // etape 5 = destination = 0
+        int forwardStep1 = PathTable.stepAlong(0, 9, 1);
+        int reverseStep4 = PathTable.stepAlong(9, 0, 4);
+        assertThat(forwardStep1).isEqualTo(reverseStep4);
+    }
+
+    @Test void stepAlongClampsBeyondDistance() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.stepAlong(0, 9, 99)).isEqualTo(9);
+        assertThat(PathTable.stepAlong(9, 0, 99)).isEqualTo(0);
+    }
+
+    @Test void stepAlongSelfReturnsSelf() {
+        loadTestGrid();
+        PathTable.init();
+        assertThat(PathTable.stepAlong(7, 7, 0)).isEqualTo(7);
+        assertThat(PathTable.stepAlong(7, 7, 3)).isEqualTo(7);
+    }
+
+    @Test void stepAlongByCoordReturnsCoord() {
+        loadTestGrid();
+        PathTable.init();
+        int after = PathTable.stepAlong(0, 0, 3, 2, 2);
+        int x = after % GameState.width;
+        int y = after / GameState.width;
+        int dx = Math.abs(x - 0);
+        int dy = Math.abs(y - 0);
+        assertThat(dx + dy).isEqualTo(2);
+    }
 }

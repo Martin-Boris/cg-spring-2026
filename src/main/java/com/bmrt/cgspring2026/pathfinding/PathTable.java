@@ -121,5 +121,36 @@ public final class PathTable {
         }
     }
 
+    public static int distance(int fromId, int toId) {
+        return dist[fromId][toId] & 0xFF;
+    }
+
+    public static int distance(int fx, int fy, int tx, int ty) {
+        int W = GameState.width;
+        int from = cellIdAt[fy * W + fx] & 0xFF;
+        int to   = cellIdAt[ty * W + tx] & 0xFF;
+        return dist[from][to] & 0xFF;
+    }
+
+    /** Cell id à l'étape {@code k} du chemin {@code from → to} ; {@code k} est clampé à la distance. */
+    public static int stepAlong(int fromId, int toId, int k) {
+        byte[] p = paths[fromId][toId];
+        int last = p.length - 1;
+        if (k > last) k = last;
+        if (fromId <= toId) {
+            return p[k] & 0xFF;
+        }
+        return p[last - k] & 0xFF;
+    }
+
+    /** Surcharge par coords : retourne le raw cell index {@code y*W + x} de la case atteinte. */
+    public static int stepAlong(int fx, int fy, int tx, int ty, int k) {
+        int W = GameState.width;
+        int from = cellIdAt[fy * W + fx] & 0xFF;
+        int to   = cellIdAt[ty * W + tx] & 0xFF;
+        int destId = stepAlong(from, to, k);
+        return (cellY[destId] & 0xFF) * W + (cellX[destId] & 0xFF);
+    }
+
     private PathTable() {}
 }
