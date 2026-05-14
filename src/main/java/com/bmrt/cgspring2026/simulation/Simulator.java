@@ -15,6 +15,7 @@ public final class Simulator {
 
     public static void tick(GameState s, int[] actions, int n) {
         applyDrops(s, actions, n);
+        applyMines(s, actions, n);
         plantTick(s);
         compactDeadTrees(s);
         s.turn++;
@@ -47,6 +48,40 @@ public final class Simulator {
         int ty = s.trollY[trollIdx] & 0xFF;
         int d  = Math.abs(tx - sx) + Math.abs(ty - sy);
         return d <= 1;
+    }
+
+    static void applyMines(GameState s, int[] actions, int n) {
+        for (int i = 0; i < n; i++) {
+            int a = actions[i];
+            if (Action.type(a) != ActionType.MINE) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            int cp = s.trollCP[idx] & 0xFF;
+            if (cp == 0) continue;
+            if (!adjacentToIron(s, idx)) continue;
+            int cc = s.trollCC[idx] & 0xFF;
+            int invBase = idx * ResourceType.COUNT;
+            int total = 0;
+            for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
+            int free = cc - total;
+            int gain = Math.min(cp, free);
+            if (gain <= 0) continue;
+            s.trollInventory[invBase + ResourceType.IRON] += gain;
+        }
+    }
+
+    static boolean adjacentToIron(GameState s, int trollIdx) {
+        int x = s.trollX[trollIdx] & 0xFF;
+        int y = s.trollY[trollIdx] & 0xFF;
+        return tileAtOrNone(x + 1, y) == TileType.IRON
+            || tileAtOrNone(x - 1, y) == TileType.IRON
+            || tileAtOrNone(x, y + 1) == TileType.IRON
+            || tileAtOrNone(x, y - 1) == TileType.IRON;
+    }
+
+    static byte tileAtOrNone(int x, int y) {
+        if (x < 0 || x >= GameState.width || y < 0 || y >= GameState.height) return -1;
+        return GameState.tiles[y * GameState.width + x];
     }
 
     static void compactDeadTrees(GameState s) {
