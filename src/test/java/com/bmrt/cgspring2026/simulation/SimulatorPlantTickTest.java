@@ -107,4 +107,42 @@ class SimulatorPlantTickTest {
         // APPLE near water: 9 - 7 = 2
         assertThat(s.treeCooldown[0]).isEqualTo((byte) 2);
     }
+
+    @Test void deadTreesRemovedAfterTick() {
+        GameState s = new GameState();
+        s.treeCount = 3;
+        // tree 0: alive
+        s.treeType[0] = com.bmrt.cgspring2026.model.TreeType.PLUM;
+        s.treeX[0] = 1; s.treeY[0] = 1;
+        s.treeSize[0] = 4; s.treeHealth[0] = 12; s.treeFruits[0] = 0; s.treeCooldown[0] = 5;
+        // tree 1: dead
+        s.treeType[1] = com.bmrt.cgspring2026.model.TreeType.LEMON;
+        s.treeX[1] = 2; s.treeY[1] = 2;
+        s.treeSize[1] = 1; s.treeHealth[1] = 0; s.treeFruits[1] = 0; s.treeCooldown[1] = 0;
+        // tree 2: alive
+        s.treeType[2] = com.bmrt.cgspring2026.model.TreeType.APPLE;
+        s.treeX[2] = 3; s.treeY[2] = 3;
+        s.treeSize[2] = 4; s.treeHealth[2] = 20; s.treeFruits[2] = 1; s.treeCooldown[2] = 5;
+        Simulator.tick(s, new int[0], 0);
+        assertThat(s.treeCount).isEqualTo(2);
+        // The remaining 2 trees are the two alive ones (order may differ due to swap-with-last)
+        boolean foundPlum = false, foundApple = false;
+        for (int i = 0; i < s.treeCount; i++) {
+            if (s.treeType[i] == com.bmrt.cgspring2026.model.TreeType.PLUM)  foundPlum  = true;
+            if (s.treeType[i] == com.bmrt.cgspring2026.model.TreeType.APPLE) foundApple = true;
+        }
+        assertThat(foundPlum).isTrue();
+        assertThat(foundApple).isTrue();
+    }
+
+    @Test void deadTreeDoesNotTickInSameTurn() {
+        GameState s = new GameState();
+        s.treeCount = 1;
+        s.treeType[0] = com.bmrt.cgspring2026.model.TreeType.PLUM;
+        s.treeX[0] = 1; s.treeY[0] = 1;
+        s.treeSize[0] = 2; s.treeHealth[0] = 0; s.treeFruits[0] = 0; s.treeCooldown[0] = 1;
+        Simulator.tick(s, new int[0], 0);
+        // Tree compacted away; count becomes 0.
+        assertThat(s.treeCount).isEqualTo(0);
+    }
 }

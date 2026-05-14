@@ -12,7 +12,29 @@ public final class Simulator {
 
     public static void tick(GameState s, int[] actions, int n) {
         plantTick(s);
+        compactDeadTrees(s);
         s.turn++;
+    }
+
+    static void compactDeadTrees(GameState s) {
+        int i = 0;
+        while (i < s.treeCount) {
+            if (s.treeHealth[i] <= 0) {
+                int last = s.treeCount - 1;
+                if (i != last) {
+                    s.treeType[i]     = s.treeType[last];
+                    s.treeX[i]        = s.treeX[last];
+                    s.treeY[i]        = s.treeY[last];
+                    s.treeSize[i]     = s.treeSize[last];
+                    s.treeHealth[i]   = s.treeHealth[last];
+                    s.treeFruits[i]   = s.treeFruits[last];
+                    s.treeCooldown[i] = s.treeCooldown[last];
+                }
+                s.treeCount--;
+            } else {
+                i++;
+            }
+        }
     }
 
     static void plantTick(GameState s) {
