@@ -30,9 +30,13 @@ public class Player {
                 if (i > 0) sb.append(';');
                 sb.append(Action.toCommand(actionBuf[i], state));
             }
+            sb.append(";MSG turn=")
+                    .append(state.turn)
+                    .append(" elapsed=")
+                    .append((System.nanoTime() - start) / 1_000_000)
+                    .append("ms");
             System.out.println(sb);
 
-            System.err.println("turn=" + state.turn + " elapsed=" + (System.nanoTime() - start) + "ns");
             state.turn++;
         }
     }

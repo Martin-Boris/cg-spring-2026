@@ -73,7 +73,6 @@ public abstract class Task {
         else {
             unitInitialCarry = unit.getInventory().getTotal();
             if (unit.getPlayer() == player) {
-                if (!usedUnits.contains(unit)) unit.setAnimateTask(this);
             } else addParsingError("You don't own troll " + id, InputError.UNIT_NOT_OWNED, false);
         }
     }

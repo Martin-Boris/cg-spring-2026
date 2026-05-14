@@ -49,7 +49,7 @@ public final class Action {
         int idx = trollIdx(action);
         int externalId = state.trollId[idx] & 0xFF;
         return switch (t) {
-            case ActionType.WAIT    -> "WAIT "    + externalId;
+            case ActionType.WAIT    -> "WAIT ";
             case ActionType.MOVE    -> "MOVE "    + externalId + " " + arg1(action) + " " + arg2(action);
             case ActionType.HARVEST -> "HARVEST " + externalId;
             case ActionType.PLANT   -> "PLANT "   + externalId + " " + TREE_NAMES[arg1(action)];

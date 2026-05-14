@@ -36,7 +36,27 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(mvn -q -Dtest=PathTableInitBudgetTest test)",
-      "Bash(mvn -q test)"
+      "Bash(mvn -q test)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(mvn -q -Dtest=ActionTest test)",
+      "Bash(mvn -Dtest=ActionTest test)",
+      "Bash(mvn -q -Dtest=ShackAdjacencyTest test)",
+      "Bash(mvn -Dtest=ShackAdjacencyTest test)",
+      "Bash(git *)",
+      "Bash(mvn -q -Dtest=GreedyAgentTrainTest test)",
+      "Bash(mvn -Dtest=GreedyAgentTrainTest test)",
+      "Bash(mvn -q -Dtest=GreedyAgentDecideTest test)",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(mvn -Dtest=GreedyAgentDecideTest test)",
+      "Bash(mvn -Dtest=GreedyAgentDecideTest clean test)",
+      "Bash(powershell -NoProfile -Command \"\\(Get-Content 'src/main/java/com/bmrt/cgspring2026/greedy/GreedyAgent.java' | Measure-Object -Line\\).Lines\")",
+      "Bash(mvn -q package)",
+      "Bash(mvn -q -pl . test -Dtest=GreedyAgentDecideTest)",
+      "Skill(superpowers:systematic-debugging)",
+      "Skill(superpowers:test-driven-development)",
+      "Bash(mvn -q -pl . test -Dtest='PathTableTest,GreedyAgentDecideTest')",
+      "Bash(mvn -q test -Dtest='PathTableTest,GreedyAgentDecideTest')"
     ]
   }
 }

@@ -94,7 +94,7 @@ class ActionTest {
 
     @Test void toCommandWaitUsesExternalId() {
         loadGridForOutput();
-        assertThat(Action.toCommand(Action.wait(0), stateWithTrolls())).isEqualTo("WAIT 7");
+        assertThat(Action.toCommand(Action.wait(0), stateWithTrolls())).isEqualTo("WAIT ");
     }
 
     @Test void toCommandMoveUsesExternalId() {

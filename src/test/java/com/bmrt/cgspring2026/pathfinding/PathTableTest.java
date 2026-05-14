@@ -196,4 +196,108 @@ class PathTableTest {
         int dy = Math.abs(y - 0);
         assertThat(dx + dy).isEqualTo(2);
     }
+
+    // --- shacks comme cellules requetables mais non traversables ---
+
+    private static void loadShackBarrierGrid() {
+        // 3x2 :
+        //  .0.
+        //  ...
+        // ShackMe en (1,0). Pas de ShackOpp.
+        GameState.width = 3;
+        GameState.height = 2;
+        GameState.tiles = new byte[]{
+            TileType.GRASS, TileType.SHACK_ME, TileType.GRASS,
+            TileType.GRASS, TileType.GRASS,    TileType.GRASS,
+        };
+        GameState.shackMeX  = 1;
+        GameState.shackMeY  = 0;
+        GameState.shackOppX = 0;
+        GameState.shackOppY = 0;
+    }
+
+    private static void loadTwoShacksGrid() {
+        // 4x1 : 0..1
+        GameState.width = 4;
+        GameState.height = 1;
+        GameState.tiles = new byte[]{
+            TileType.SHACK_ME, TileType.GRASS, TileType.GRASS, TileType.SHACK_OPP,
+        };
+        GameState.shackMeX  = 0;
+        GameState.shackMeY  = 0;
+        GameState.shackOppX = 3;
+        GameState.shackOppY = 0;
+    }
+
+    @Test void indexCellsRegistersShackMeAsExtraCell() {
+        loadShackBarrierGrid();
+        PathTable.indexCells();
+        assertThat(PathTable.N).isEqualTo(5);          // GRASS seulement
+        assertThat(PathTable.Ntot).isEqualTo(6);       // + shackMe
+        assertThat(PathTable.shackMeId).isEqualTo(5);
+        assertThat(PathTable.shackOppId).isEqualTo(-1);
+        assertThat(PathTable.cellId(1, 0)).isEqualTo(5);
+    }
+
+    @Test void indexCellsRegistersBothShacksWhenPresent() {
+        loadTwoShacksGrid();
+        PathTable.indexCells();
+        assertThat(PathTable.N).isEqualTo(2);
+        assertThat(PathTable.Ntot).isEqualTo(4);
+        assertThat(PathTable.shackMeId).isEqualTo(2);
+        assertThat(PathTable.shackOppId).isEqualTo(3);
+        assertThat(PathTable.cellId(0, 0)).isEqualTo(2);
+        assertThat(PathTable.cellId(3, 0)).isEqualTo(3);
+    }
+
+    @Test void bfsDoesNotTraverseShack() {
+        loadShackBarrierGrid();
+        PathTable.init();
+        // (0,0)→(2,0) : raccourci direct par le shack (1,0) = 2.
+        // Le shack n'etant pas traversable, le BFS doit contourner par la ligne du bas = 4.
+        assertThat(PathTable.distance(0, 0, 2, 0)).isEqualTo(4);
+    }
+
+    @Test void distanceFromShackToAdjacentGrassIsOne() {
+        loadShackBarrierGrid();
+        PathTable.init();
+        int shack = PathTable.shackMeId;
+        int adj   = PathTable.cellId(0, 0);
+        assertThat(PathTable.distance(shack, adj)).isEqualTo(1);
+        assertThat(PathTable.distance(adj, shack)).isEqualTo(1);
+    }
+
+    @Test void distanceFromShackToSelfIsZero() {
+        loadShackBarrierGrid();
+        PathTable.init();
+        assertThat(PathTable.distance(PathTable.shackMeId, PathTable.shackMeId)).isEqualTo(0);
+    }
+
+    @Test void distanceByCoordsWorksFromShackPosition() {
+        loadShackBarrierGrid();
+        PathTable.init();
+        // shack(1,0) → (2,1) : 1+1 = 2 via (1,1) ou (2,0).
+        assertThat(PathTable.distance(1, 0, 2, 1)).isEqualTo(2);
+    }
+
+    @Test void pathFromShackToGrassEndpoints() {
+        loadShackBarrierGrid();
+        PathTable.init();
+        int shack = PathTable.shackMeId;  // 5
+        int adj   = PathTable.cellId(0, 0); // 0
+        byte[] p = PathTable.paths[adj][shack]; // canonique : id min en tete
+        assertThat(p.length).isEqualTo(2);
+        assertThat(p[0] & 0xFF).isEqualTo(adj);
+        assertThat(p[p.length - 1] & 0xFF).isEqualTo(shack);
+    }
+
+    @Test void distanceBetweenTwoShacks() {
+        loadTwoShacksGrid();
+        PathTable.init();
+        int me  = PathTable.shackMeId;  // 2
+        int opp = PathTable.shackOppId; // 3
+        // shackMe(0,0) → (1,0) → (2,0) → shackOpp(3,0) = 3
+        assertThat(PathTable.distance(me, opp)).isEqualTo(3);
+        assertThat(PathTable.distance(opp, me)).isEqualTo(3);
+    }
 }

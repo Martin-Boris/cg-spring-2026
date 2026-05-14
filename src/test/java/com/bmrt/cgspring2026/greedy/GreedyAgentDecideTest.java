@@ -189,6 +189,26 @@ class GreedyAgentDecideTest {
         assertThat(Action.type(buf[1])).isEqualTo((int) ActionType.WAIT);
     }
 
+    @Test void decideTrollOnShackMePicksClosestTreeWithoutCrashing() {
+        GameState s = new GameState();
+        s.turn = 0;
+        s.trollCount = 1;
+        s.trollPlayer[0] = 0;
+        s.trollX[0] = (byte) GameState.shackMeX; // troll sur le shack (turn 0)
+        s.trollY[0] = (byte) GameState.shackMeY;
+        s.treeCount = 1;
+        s.treeX[0] = 3;
+        s.treeY[0] = 2;
+        int[] buf = new int[GameState.MAX_TROLLS + 1];
+        int n = GreedyAgent.decide(s, buf);
+        // Au moins une action emise (move vers arbre, eventuellement precedee de TRAIN si payable).
+        assertThat(n).isGreaterThanOrEqualTo(1);
+        int last = buf[n - 1];
+        assertThat(Action.type(last)).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.arg1(last)).isEqualTo(3);
+        assertThat(Action.arg2(last)).isEqualTo(2);
+    }
+
     @Test void decideSkipsTrainAfterTurn0() {
         GameState s = new GameState();
         s.turn = 1;
