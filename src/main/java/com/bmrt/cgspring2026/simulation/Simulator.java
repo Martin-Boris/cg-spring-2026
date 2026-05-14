@@ -1,6 +1,9 @@
 package com.bmrt.cgspring2026.simulation;
 
+import com.bmrt.cgspring2026.action.Action;
+import com.bmrt.cgspring2026.action.ActionType;
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.ResourceType;
 import com.bmrt.cgspring2026.model.TileType;
 import com.bmrt.cgspring2026.model.TreeType;
 
@@ -11,9 +14,39 @@ public final class Simulator {
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
+        applyDrops(s, actions, n);
         plantTick(s);
         compactDeadTrees(s);
         s.turn++;
+    }
+
+    static void applyDrops(GameState s, int[] actions, int n) {
+        for (int i = 0; i < n; i++) {
+            int a = actions[i];
+            if (Action.type(a) != ActionType.DROP) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            if (!trollNearOwnShack(s, idx)) continue;
+            int invBase = idx * ResourceType.COUNT;
+            int total = 0;
+            for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
+            if (total == 0) continue;
+            int shackBase = (s.trollPlayer[idx] & 0xFF) * ResourceType.COUNT;
+            for (int r = 0; r < ResourceType.COUNT; r++) {
+                s.shackInventory[shackBase + r] += s.trollInventory[invBase + r] & 0xFF;
+                s.trollInventory[invBase + r] = 0;
+            }
+        }
+    }
+
+    static boolean trollNearOwnShack(GameState s, int trollIdx) {
+        int player = s.trollPlayer[trollIdx] & 0xFF;
+        int sx = (player == 0) ? GameState.shackMeX  : GameState.shackOppX;
+        int sy = (player == 0) ? GameState.shackMeY  : GameState.shackOppY;
+        int tx = s.trollX[trollIdx] & 0xFF;
+        int ty = s.trollY[trollIdx] & 0xFF;
+        int d  = Math.abs(tx - sx) + Math.abs(ty - sy);
+        return d <= 1;
     }
 
     static void compactDeadTrees(GameState s) {
