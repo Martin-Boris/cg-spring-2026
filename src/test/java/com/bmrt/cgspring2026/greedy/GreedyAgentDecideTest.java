@@ -1,0 +1,107 @@
+package com.bmrt.cgspring2026.greedy;
+
+import com.bmrt.cgspring2026.action.Action;
+import com.bmrt.cgspring2026.action.ActionType;
+import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.ResourceType;
+import com.bmrt.cgspring2026.model.TileType;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class GreedyAgentDecideTest {
+
+    @BeforeEach void setUpGrid() {
+        String[] rows = {
+            "......",
+            ".0....",
+            "......",
+            "...1..",
+            "......"
+        };
+        GameState.height = rows.length;
+        GameState.width  = rows[0].length();
+        GameState.tiles  = new byte[GameState.width * GameState.height];
+        for (int y = 0; y < GameState.height; y++) {
+            for (int x = 0; x < GameState.width; x++) {
+                byte t = TileType.fromChar(rows[y].charAt(x));
+                GameState.tiles[y * GameState.width + x] = t;
+                if (t == TileType.SHACK_ME)  { GameState.shackMeX  = x; GameState.shackMeY  = y; }
+                if (t == TileType.SHACK_OPP) { GameState.shackOppX = x; GameState.shackOppY = y; }
+            }
+        }
+        PathTable.init();
+        ShackAdjacency.init();
+    }
+
+    private static GameState stateWithTroll(int x, int y, int wood) {
+        GameState s = new GameState();
+        s.trollCount = 1;
+        s.trollPlayer[0] = 0;
+        s.trollX[0] = (byte) x;
+        s.trollY[0] = (byte) y;
+        s.trollMS[0] = 2;
+        s.trollCC[0] = 4;
+        s.trollHP[0] = 1;
+        s.trollCP[0] = 1;
+        s.trollInventory[ResourceType.WOOD] = (byte) wood;
+        return s;
+    }
+
+    @Test void dropWhenStandingOnShackAdjacent() {
+        GameState s = stateWithTroll(0, 1, 3);
+        int a = GreedyAgent.decideForTroll(s, 0, -1);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.DROP);
+        assertThat(Action.trollIdx(a)).isEqualTo(0);
+    }
+
+    @Test void moveTowardsClosestShackAdjacentWhenCarryingWood() {
+        // troll a (5,4), shack a (1,1). Cases adj : (0,1)(2,1)(1,0)(1,2). Plus proche : (1,2) dist=5.
+        GameState s = stateWithTroll(5, 4, 2);
+        int a = GreedyAgent.decideForTroll(s, 0, -1);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.trollIdx(a)).isEqualTo(0);
+        assertThat(Action.arg1(a)).isEqualTo(1);
+        assertThat(Action.arg2(a)).isEqualTo(2);
+    }
+
+    @Test void waitWhenNoTreeAvailable() {
+        GameState s = stateWithTroll(2, 2, 0);
+        int a = GreedyAgent.decideForTroll(s, 0, -1);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.WAIT);
+        assertThat(Action.trollIdx(a)).isEqualTo(0);
+    }
+
+    @Test void chopWhenStandingOnTargetTree() {
+        GameState s = stateWithTroll(3, 2, 0);
+        s.treeCount = 1;
+        s.treeX[0] = 3;
+        s.treeY[0] = 2;
+        int a = GreedyAgent.decideForTroll(s, 0, 0);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.CHOP);
+        assertThat(Action.trollIdx(a)).isEqualTo(0);
+    }
+
+    @Test void moveTowardsTargetTreeWhenNotOnIt() {
+        GameState s = stateWithTroll(0, 0, 0);
+        s.treeCount = 1;
+        s.treeX[0] = 5;
+        s.treeY[0] = 4;
+        int a = GreedyAgent.decideForTroll(s, 0, 0);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.trollIdx(a)).isEqualTo(0);
+        assertThat(Action.arg1(a)).isEqualTo(5);
+        assertThat(Action.arg2(a)).isEqualTo(4);
+    }
+
+    @Test void carryingWoodPriorityOverTreeAssignment() {
+        GameState s = stateWithTroll(5, 4, 1);
+        s.treeCount = 1;
+        s.treeX[0] = 5;
+        s.treeY[0] = 4;
+        int a = GreedyAgent.decideForTroll(s, 0, 0);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.MOVE);
+    }
+}
