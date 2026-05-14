@@ -14,11 +14,33 @@ public final class Simulator {
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
+        applyPicks(s, actions, n);
         applyDrops(s, actions, n);
         applyMines(s, actions, n);
         plantTick(s);
         compactDeadTrees(s);
         s.turn++;
+    }
+
+    static void applyPicks(GameState s, int[] actions, int n) {
+        for (int i = 0; i < n; i++) {
+            int a = actions[i];
+            if (Action.type(a) != ActionType.PICK) continue;
+            int idx = Action.trollIdx(a);
+            if (idx >= s.trollCount) continue;
+            int type = Action.arg1(a);
+            if (type < 0 || type >= ResourceType.COUNT) continue;
+            if (!trollNearOwnShack(s, idx)) continue;
+            int cc = s.trollCC[idx] & 0xFF;
+            int invBase = idx * ResourceType.COUNT;
+            int total = 0;
+            for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
+            if (total >= cc) continue;
+            int shackBase = (s.trollPlayer[idx] & 0xFF) * ResourceType.COUNT;
+            if (s.shackInventory[shackBase + type] <= 0) continue;
+            s.shackInventory[shackBase + type]--;
+            s.trollInventory[invBase + type]++;
+        }
     }
 
     static void applyDrops(GameState s, int[] actions, int n) {
