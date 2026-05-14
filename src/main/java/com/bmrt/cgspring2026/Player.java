@@ -1,6 +1,7 @@
 package com.bmrt.cgspring2026;
 
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
 
 import java.util.Scanner;
 
@@ -12,6 +13,7 @@ public class Player {
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
         GameState.readInit(in);
+        PathTable.init();
         GameState state = new GameState();
 
         while (true) {
