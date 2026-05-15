@@ -12,7 +12,7 @@ public final class GeneticAgent {
     public static final double P_CROSSOVER = 0.70;
 
     private final GameState scratch = new GameState();
-    private final Population pop = new Population();
+    final Population pop = new Population();
     private final SplittableRandom rng = new SplittableRandom();
     private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
 
@@ -86,7 +86,8 @@ public final class GeneticAgent {
     }
 
     private void initPopulation(GameState state) {
-        for (int i = 0; i < Genome.POP_SIZE; i++) {
+        GenomeOps.initWarm(state, pop.cur, pop.curLen, 0);
+        for (int i = 1; i < Genome.POP_SIZE; i++) {
             GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
         }
     }
