@@ -57,8 +57,8 @@ class Player {
 	    private ResourceType() {}
 	}
 	private static class GameState {
-	    public static final int MAX_TREES  = 128;
-	    public static final int MAX_TROLLS = 32;
+	    public static final int MAX_TREES = 80;
+	    public static final int MAX_TROLLS = 22;
 	    public static int width;
 	    public static int height;
 	    public static byte[] tiles;
@@ -66,34 +66,34 @@ class Player {
 	    public static int shackMeY;
 	    public static int shackOppX;
 	    public static int shackOppY;
-	    public int turn;
 	    public final int[] shackInventory = new int[2 * ResourceType.COUNT];
-	    public int treeCount;
-	    public final byte[] treeType     = new byte[MAX_TREES];
-	    public final byte[] treeX        = new byte[MAX_TREES];
-	    public final byte[] treeY        = new byte[MAX_TREES];
-	    public final byte[] treeSize     = new byte[MAX_TREES];
-	    public final byte[] treeHealth   = new byte[MAX_TREES];
-	    public final byte[] treeFruits   = new byte[MAX_TREES];
+	    public final byte[] treeType = new byte[MAX_TREES];
+	    public final byte[] treeX = new byte[MAX_TREES];
+	    public final byte[] treeY = new byte[MAX_TREES];
+	    public final byte[] treeSize = new byte[MAX_TREES];
+	    public final byte[] treeHealth = new byte[MAX_TREES];
+	    public final byte[] treeFruits = new byte[MAX_TREES];
 	    public final byte[] treeCooldown = new byte[MAX_TREES];
-	    public byte[] treeCellIndex;
-	    public int trollCount;
-	    public final byte[] trollId     = new byte[MAX_TROLLS];
+	    public final byte[] trollId = new byte[MAX_TROLLS];
 	    public final byte[] trollPlayer = new byte[MAX_TROLLS];
-	    public final byte[] trollX      = new byte[MAX_TROLLS];
-	    public final byte[] trollY      = new byte[MAX_TROLLS];
-	    public final byte[] trollMS     = new byte[MAX_TROLLS];
-	    public final byte[] trollCC     = new byte[MAX_TROLLS];
-	    public final byte[] trollHP     = new byte[MAX_TROLLS];
-	    public final byte[] trollCP     = new byte[MAX_TROLLS];
+	    public final byte[] trollX = new byte[MAX_TROLLS];
+	    public final byte[] trollY = new byte[MAX_TROLLS];
+	    public final byte[] trollMS = new byte[MAX_TROLLS];
+	    public final byte[] trollCC = new byte[MAX_TROLLS];
+	    public final byte[] trollHP = new byte[MAX_TROLLS];
+	    public final byte[] trollCP = new byte[MAX_TROLLS];
 	    public final byte[] trollInventory = new byte[MAX_TROLLS * ResourceType.COUNT];
 	    public final int[] trollCarryTotal = new int[MAX_TROLLS];
+	    public int turn;
+	    public int treeCount;
+	    public byte[] treeCellIndex;
+	    public int trollCount;
 	    public byte[] trollCellIndex;
 	    public int nextTrollId;
 	    public GameState() {
 	    }
 	    public static void readInit(Scanner in) {
-	        width  = in.nextInt();
+	        width = in.nextInt();
 	        height = in.nextInt();
 	        in.nextLine();
 	        tiles = new byte[width * height];
@@ -102,10 +102,19 @@ class Player {
 	            for (int x = 0; x < width; x++) {
 	                byte t = TileType.fromChar(line.charAt(x));
 	                tiles[y * width + x] = t;
-	                if (t == TileType.SHACK_ME)  { shackMeX  = x; shackMeY  = y; }
-	                if (t == TileType.SHACK_OPP) { shackOppX = x; shackOppY = y; }
+	                if (t == TileType.SHACK_ME) {
+	                    shackMeX = x;
+	                    shackMeY = y;
+	                }
+	                if (t == TileType.SHACK_OPP) {
+	                    shackOppX = x;
+	                    shackOppY = y;
+	                }
 	            }
 	        }
+	    }
+	    public static byte tileAt(int x, int y) {
+	        return tiles[y * width + x];
 	    }
 	    public void readTurn(Scanner in) {
 	        for (int p = 0; p < 2; p++) {
@@ -115,25 +124,25 @@ class Player {
 	        }
 	        treeCount = in.nextInt();
 	        for (int i = 0; i < treeCount; i++) {
-	            treeType[i]     = TreeType.fromString(in.next());
-	            treeX[i]        = (byte) in.nextInt();
-	            treeY[i]        = (byte) in.nextInt();
-	            treeSize[i]     = (byte) in.nextInt();
-	            treeHealth[i]   = (byte) in.nextInt();
-	            treeFruits[i]   = (byte) in.nextInt();
+	            treeType[i] = TreeType.fromString(in.next());
+	            treeX[i] = (byte) in.nextInt();
+	            treeY[i] = (byte) in.nextInt();
+	            treeSize[i] = (byte) in.nextInt();
+	            treeHealth[i] = (byte) in.nextInt();
+	            treeFruits[i] = (byte) in.nextInt();
 	            treeCooldown[i] = (byte) in.nextInt();
 	        }
 	        treeCellIndex = null; // invalidate; will be lazily rebuilt on first use
 	        trollCount = in.nextInt();
 	        for (int i = 0; i < trollCount; i++) {
-	            trollId[i]     = (byte) in.nextInt();
+	            trollId[i] = (byte) in.nextInt();
 	            trollPlayer[i] = (byte) in.nextInt();
-	            trollX[i]      = (byte) in.nextInt();
-	            trollY[i]      = (byte) in.nextInt();
-	            trollMS[i]     = (byte) in.nextInt();
-	            trollCC[i]     = (byte) in.nextInt();
-	            trollHP[i]     = (byte) in.nextInt();
-	            trollCP[i]     = (byte) in.nextInt();
+	            trollX[i] = (byte) in.nextInt();
+	            trollY[i] = (byte) in.nextInt();
+	            trollMS[i] = (byte) in.nextInt();
+	            trollCC[i] = (byte) in.nextInt();
+	            trollHP[i] = (byte) in.nextInt();
+	            trollCP[i] = (byte) in.nextInt();
 	            for (int r = 0; r < ResourceType.COUNT; r++) {
 	                trollInventory[i * ResourceType.COUNT + r] = (byte) in.nextInt();
 	            }
@@ -153,12 +162,12 @@ class Player {
 	        turn = src.turn;
 	        System.arraycopy(src.shackInventory, 0, shackInventory, 0, shackInventory.length);
 	        treeCount = src.treeCount;
-	        System.arraycopy(src.treeType,     0, treeType,     0, MAX_TREES);
-	        System.arraycopy(src.treeX,        0, treeX,        0, MAX_TREES);
-	        System.arraycopy(src.treeY,        0, treeY,        0, MAX_TREES);
-	        System.arraycopy(src.treeSize,     0, treeSize,     0, MAX_TREES);
-	        System.arraycopy(src.treeHealth,   0, treeHealth,   0, MAX_TREES);
-	        System.arraycopy(src.treeFruits,   0, treeFruits,   0, MAX_TREES);
+	        System.arraycopy(src.treeType, 0, treeType, 0, MAX_TREES);
+	        System.arraycopy(src.treeX, 0, treeX, 0, MAX_TREES);
+	        System.arraycopy(src.treeY, 0, treeY, 0, MAX_TREES);
+	        System.arraycopy(src.treeSize, 0, treeSize, 0, MAX_TREES);
+	        System.arraycopy(src.treeHealth, 0, treeHealth, 0, MAX_TREES);
+	        System.arraycopy(src.treeFruits, 0, treeFruits, 0, MAX_TREES);
 	        System.arraycopy(src.treeCooldown, 0, treeCooldown, 0, MAX_TREES);
 	        if (treeCellIndex == null || treeCellIndex.length < width * height) {
 	            treeCellIndex = new byte[width * height];
@@ -172,15 +181,15 @@ class Player {
 	            }
 	        }
 	        trollCount = src.trollCount;
-	        System.arraycopy(src.trollId,        0, trollId,        0, MAX_TROLLS);
-	        System.arraycopy(src.trollPlayer,    0, trollPlayer,    0, MAX_TROLLS);
-	        System.arraycopy(src.trollX,         0, trollX,         0, MAX_TROLLS);
-	        System.arraycopy(src.trollY,         0, trollY,         0, MAX_TROLLS);
-	        System.arraycopy(src.trollMS,        0, trollMS,        0, MAX_TROLLS);
-	        System.arraycopy(src.trollCC,        0, trollCC,        0, MAX_TROLLS);
-	        System.arraycopy(src.trollHP,        0, trollHP,        0, MAX_TROLLS);
-	        System.arraycopy(src.trollCP,        0, trollCP,        0, MAX_TROLLS);
-	        System.arraycopy(src.trollInventory,  0, trollInventory,  0, MAX_TROLLS * ResourceType.COUNT);
+	        System.arraycopy(src.trollId, 0, trollId, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollPlayer, 0, trollPlayer, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollX, 0, trollX, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollY, 0, trollY, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollMS, 0, trollMS, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollCC, 0, trollCC, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollHP, 0, trollHP, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollCP, 0, trollCP, 0, MAX_TROLLS);
+	        System.arraycopy(src.trollInventory, 0, trollInventory, 0, MAX_TROLLS * ResourceType.COUNT);
 	        System.arraycopy(src.trollCarryTotal, 0, trollCarryTotal, 0, MAX_TROLLS);
 	        nextTrollId = src.nextTrollId;
 	        if (trollCellIndex == null || trollCellIndex.length < width * height) {
@@ -201,10 +210,10 @@ class Player {
 	    public int score(int player) {
 	        int base = player * ResourceType.COUNT;
 	        return shackInventory[base + ResourceType.PLUM]
-	             + shackInventory[base + ResourceType.LEMON]
-	             + shackInventory[base + ResourceType.APPLE]
-	             + shackInventory[base + ResourceType.BANANA]
-	             + 4 * shackInventory[base + ResourceType.WOOD];
+	                + shackInventory[base + ResourceType.LEMON]
+	                + shackInventory[base + ResourceType.APPLE]
+	                + shackInventory[base + ResourceType.BANANA]
+	                + 4 * shackInventory[base + ResourceType.WOOD];
 	    }
 	    private void ensureTrollCellIndex() {
 	        if (trollCellIndex == null || trollCellIndex.length < width * height) {
@@ -228,13 +237,13 @@ class Player {
 	        ensureTrollCellIndex();
 	        int idx = trollCount++;
 	        trollPlayer[idx] = (byte) player;
-	        trollId[idx]     = (byte) nextTrollId++;
-	        trollX[idx]      = (byte) x;
-	        trollY[idx]      = (byte) y;
-	        trollMS[idx]     = (byte) ms;
-	        trollCC[idx]     = (byte) cc;
-	        trollHP[idx]     = (byte) hp;
-	        trollCP[idx]     = (byte) cp;
+	        trollId[idx] = (byte) nextTrollId++;
+	        trollX[idx] = (byte) x;
+	        trollY[idx] = (byte) y;
+	        trollMS[idx] = (byte) ms;
+	        trollCC[idx] = (byte) cc;
+	        trollHP[idx] = (byte) hp;
+	        trollCP[idx] = (byte) cp;
 	        int invBase = idx * ResourceType.COUNT;
 	        for (int r = 0; r < ResourceType.COUNT; r++) trollInventory[invBase + r] = 0;
 	        trollCarryTotal[idx] = 0;
@@ -287,12 +296,12 @@ class Player {
 	    public int addTree(byte type, int x, int y, int size, int health) {
 	        ensureTreeCellIndex();
 	        int idx = treeCount++;
-	        treeType[idx]     = type;
-	        treeX[idx]        = (byte) x;
-	        treeY[idx]        = (byte) y;
-	        treeSize[idx]     = (byte) size;
-	        treeHealth[idx]   = (byte) health;
-	        treeFruits[idx]   = 0;
+	        treeType[idx] = type;
+	        treeX[idx] = (byte) x;
+	        treeY[idx] = (byte) y;
+	        treeSize[idx] = (byte) size;
+	        treeHealth[idx] = (byte) health;
+	        treeFruits[idx] = 0;
 	        treeCooldown[idx] = 0;
 	        treeCellIndex[y * width + x] = (byte) idx;
 	        return idx;
@@ -309,12 +318,12 @@ class Player {
 	            if (treeHealth[i] <= 0) {
 	                int last = treeCount - 1;
 	                if (i != last) {
-	                    treeType[i]     = treeType[last];
-	                    treeX[i]        = treeX[last];
-	                    treeY[i]        = treeY[last];
-	                    treeSize[i]     = treeSize[last];
-	                    treeHealth[i]   = treeHealth[last];
-	                    treeFruits[i]   = treeFruits[last];
+	                    treeType[i] = treeType[last];
+	                    treeX[i] = treeX[last];
+	                    treeY[i] = treeY[last];
+	                    treeSize[i] = treeSize[last];
+	                    treeHealth[i] = treeHealth[last];
+	                    treeFruits[i] = treeFruits[last];
 	                    treeCooldown[i] = treeCooldown[last];
 	                    if (treeHealth[i] > 0) {
 	                        treeCellIndex[(treeY[i] & 0xFF) * width + (treeX[i] & 0xFF)] = (byte) i;
@@ -325,9 +334,6 @@ class Player {
 	                i++;
 	            }
 	        }
-	    }
-	    public static byte tileAt(int x, int y) {
-	        return tiles[y * width + x];
 	    }
 	}
 	private static class ActionType {
@@ -1234,6 +1240,16 @@ class Player {
 	        }
 	        return count;
 	    }
+	    public static int fillOwnActions(GameState s, short[] popBuf, byte[] popLen, int idx,
+	                                      int[] cursor, int[] outActions) {
+	        int count = 0;
+	        for (int trollIdx = 0; trollIdx < s.trollCount; trollIdx++) {
+	            if ((s.trollPlayer[trollIdx] & 0xFF) == 0) {
+	                outActions[count++] = decideForOwnTroll(s, popBuf, popLen, idx, cursor, trollIdx);
+	            }
+	        }
+	        return count;
+	    }
 	    private static int decideForOwnTroll(GameState s, short[] popBuf, byte[] popLen, int idx,
 	                                         int[] cursor, int trollIdx) {
 	        int tx = s.trollX[trollIdx] & 0xFF;
@@ -1316,6 +1332,9 @@ class Player {
 	    private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
 	    private static final int[]   ownTrollsBuf    = new int[GameState.MAX_TROLLS];
 	    private static final int[]   freeTrollsBuf   = new int[GameState.MAX_TROLLS];
+	    private static final boolean[] warmTreeTakenBuf = new boolean[GameState.MAX_TREES];
+	    private static final int[]     warmCurX         = new int[GameState.MAX_TROLLS];
+	    private static final int[]     warmCurY         = new int[GameState.MAX_TROLLS];
 	    private GenomeOps() {}
 	    public static void initRandom(GameState state, short[] buf, byte[] lenBuf,
 	                                  int individuIdx, SplittableRandom rng) {
@@ -1351,6 +1370,81 @@ class Player {
 	            int len = Genome.len(lenBuf, individuIdx, chosenTroll);
 	            Genome.setGene(buf, individuIdx, chosenTroll, len, shuffleBuf[i]);
 	            Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
+	        }
+	    }
+	    public static void initWarm(GameState state, short[] buf, byte[] lenBuf, int individuIdx) {
+	        int base = Genome.offset(individuIdx, 0);
+	        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) buf[base + k] = Genome.EMPTY_GENE;
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(lenBuf, individuIdx, j, 0);
+	        int ownCount = 0;
+	        for (int i = 0; i < state.trollCount; i++) {
+	            if ((state.trollPlayer[i] & 0xFF) == 0) ownTrollsBuf[ownCount++] = i;
+	        }
+	        if (ownCount == 0) return;
+	        for (int k = 0; k < ownCount; k++) {
+	            int troll = ownTrollsBuf[k];
+	            warmCurX[troll] = state.trollX[troll] & 0xFF;
+	            warmCurY[troll] = state.trollY[troll] & 0xFF;
+	        }
+	        for (int t = 0; t < state.treeCount; t++) warmTreeTakenBuf[t] = false;
+	        for (int kLayer = 0; kLayer < Genome.MAX_TARGETS_PER_TROLL; kLayer++) {
+	            boolean anyAssigned = false;
+	            for (int kT = 0; kT < ownCount; kT++) {
+	                int troll = ownTrollsBuf[kT];
+	                int bestTree = -1;
+	                int bestDist = PathTable.UNREACHABLE;
+	                int cx = warmCurX[troll];
+	                int cy = warmCurY[troll];
+	                for (int t = 0; t < state.treeCount; t++) {
+	                    if (state.treeHealth[t] <= 0) continue;
+	                    if (warmTreeTakenBuf[t])      continue;
+	                    int tx = state.treeX[t] & 0xFF;
+	                    int ty = state.treeY[t] & 0xFF;
+	                    int d  = PathTable.distance(cx, cy, tx, ty);
+	                    if (d == PathTable.UNREACHABLE) continue;
+	                    if (d < bestDist) {
+	                        bestDist = d;
+	                        bestTree = t;
+	                    }
+	                }
+	                if (bestTree >= 0) {
+	                    int bx = state.treeX[bestTree] & 0xFF;
+	                    int by = state.treeY[bestTree] & 0xFF;
+	                    Genome.setGene(buf, individuIdx, troll, kLayer, Genome.encode(bx, by));
+	                    Genome.setLen(lenBuf, individuIdx, troll, kLayer + 1);
+	                    warmTreeTakenBuf[bestTree] = true;
+	                    warmCurX[troll] = bx;
+	                    warmCurY[troll] = by;
+	                    anyAssigned = true;
+	                }
+	            }
+	            if (!anyAssigned) break;
+	        }
+	    }
+	    public static void initFromPrevBest(GameState state,
+	                                        short[] prevBuf, byte[] prevLenBuf,
+	                                        short[] dstBuf,  byte[] dstLenBuf,
+	                                        int individuIdx) {
+	        int base = Genome.offset(individuIdx, 0);
+	        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) dstBuf[base + k] = Genome.EMPTY_GENE;
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(dstLenBuf, individuIdx, j, 0);
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+	            int prevLen = prevLenBuf[j] & 0xFF;
+	            int written = 0;
+	            int srcOff = j * Genome.MAX_TARGETS_PER_TROLL;
+	            int dstOff = Genome.offset(individuIdx, j);
+	            for (int k = 0; k < prevLen; k++) {
+	                short g = prevBuf[srcOff + k];
+	                if (g == Genome.EMPTY_GENE) continue;
+	                int gx = Genome.geneX(g);
+	                int gy = Genome.geneY(g);
+	                int t = state.treeIndexAt(gx, gy);
+	                if (t < 0) continue;
+	                if (state.treeHealth[t] <= 0) continue;
+	                dstBuf[dstOff + written] = g;
+	                written++;
+	            }
+	            Genome.setLen(dstLenBuf, individuIdx, j, written);
 	        }
 	    }
 	    public static final double P_MUT_SWAP_INTRA = 0.40;
@@ -1541,8 +1635,8 @@ class Player {
 	    }
 	}
 	private static class Genome {
-	    public static final int POP_SIZE = 15;
-	    public static final int MAX_TARGETS_PER_TROLL = 10;
+	    public static final int POP_SIZE = 30;
+	    public static final int MAX_TARGETS_PER_TROLL = 15;
 	    public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
 	    public static final short EMPTY_GENE = -1;
 	    private Genome() {
@@ -1577,15 +1671,18 @@ class Player {
 	}
 	private static class GeneticAgent {
 	    public static final long TURN_BUDGET_NS = 45_000_000L;
-	    public static final long INIT_BUDGET_NS = 900_000_000L;
+	    public static final long INIT_BUDGET_NS = 920_000_000L;
 	    public static final double P_CROSSOVER = 0.70;
+	    final Population pop = new Population();
+	    final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
+	    final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
 	    private final GameState scratch = new GameState();
-	    private final Population pop = new Population();
 	    private final SplittableRandom rng = new SplittableRandom();
 	    private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
+	    boolean hasPrevBest = false;
+	    int lastBestIdx;
 	    private int lastGenCount;
 	    private double lastBestFitness;
-	    private int lastBestIdx;
 	    public GeneticAgent() {
 	    }
 	    private static void copyIndividu(short[] srcBuf, byte[] srcLen, int srcIdx,
@@ -1617,9 +1714,14 @@ class Player {
 	        }
 	        lastBestIdx = argmax(pop.curFit);
 	        lastBestFitness = pop.curFit[lastBestIdx];
+	        System.arraycopy(pop.cur, Genome.offset(lastBestIdx, 0),
+	                prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
+	        System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
+	                prevBestLen, 0, GameState.MAX_TROLLS);
+	        hasPrevBest = true;
 	        int[] cursor = TrollPolicy.cursorBuf;
 	        for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
-	        int n = TrollPolicy.fillActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
+	        int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
 	        if (state.turn == 0) {
 	            int trainAction = GreedyAgent.maybeTrain(state);
 	            if (trainAction != -1) {
@@ -1637,8 +1739,18 @@ class Player {
 	        return lastBestFitness;
 	    }
 	    private void initPopulation(GameState state) {
-	        for (int i = 0; i < Genome.POP_SIZE; i++) {
-	            GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
+	        if (hasPrevBest) {
+	            GenomeOps.initFromPrevBest(state, prevBestBuf, prevBestLen,
+	                    pop.cur, pop.curLen, 0);
+	            GenomeOps.initWarm(state, pop.cur, pop.curLen, 1);
+	            for (int i = 2; i < Genome.POP_SIZE; i++) {
+	                GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
+	            }
+	        } else {
+	            GenomeOps.initWarm(state, pop.cur, pop.curLen, 0);
+	            for (int i = 1; i < Genome.POP_SIZE; i++) {
+	                GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
+	            }
 	        }
 	    }
 	    private void evaluatePopulation(GameState state) {
@@ -1671,16 +1783,16 @@ class Player {
         GameState.readInit(in);
         PathTable.init();
         ShackAdjacency.init();
-        GameState state    = new GameState();
+        GameState state = new GameState();
         GeneticAgent agent = new GeneticAgent();
-        int[] actionBuf    = new int[GameState.MAX_TROLLS + 1];
-        StringBuilder sb   = new StringBuilder();
+        int[] actionBuf = new int[GameState.MAX_TROLLS + 1];
+        StringBuilder sb = new StringBuilder();
         boolean firstTurn = true;
         while (true) {
-            long start = System.nanoTime();
             state.readTurn(in);
+            long start = System.nanoTime();
             long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
-                                               : GeneticAgent.TURN_BUDGET_NS);
+                    : GeneticAgent.TURN_BUDGET_NS);
             int n = agent.decide(state, deadline, actionBuf);
             firstTurn = false;
             sb.setLength(0);
@@ -1689,8 +1801,8 @@ class Player {
                 sb.append(Action.toCommand(actionBuf[i], state));
             }
             sb.append(";MSG GA gen=").append(agent.lastGenCount())
-              .append(" fit=").append((int) agent.lastBestFitness())
-              .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
+                    .append(" fit=").append((int) agent.lastBestFitness())
+                    .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
             System.out.println(sb);
             state.turn++;
         }

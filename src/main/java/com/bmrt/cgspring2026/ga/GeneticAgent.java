@@ -8,7 +8,7 @@ import java.util.SplittableRandom;
 public final class GeneticAgent {
 
     public static final long TURN_BUDGET_NS = 45_000_000L;
-    public static final long INIT_BUDGET_NS = 950_000_000L;
+    public static final long INIT_BUDGET_NS = 920_000_000L;
     public static final double P_CROSSOVER = 0.70;
     final Population pop = new Population();
     final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
