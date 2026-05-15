@@ -162,4 +162,27 @@ class GenomeOpsWarmStartTest {
         // Invariants tenus
         assertThat(GenomeInvariants.check(buf, len, 0)).isTrue();
     }
+
+    @Test void satisfiesInvariantsOnDenseScenario() {
+        // 3 trolls own + 1 troll opp, 12 arbres répartis sur la grille 6x6.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0}, {0, 5, 0}, {0, 0, 5}, {1, 5, 5} },
+            new int[][]{
+                {1, 0, 5}, {2, 0, 5}, {3, 0, 5}, {4, 0, 5},
+                {0, 2, 5}, {2, 2, 5}, {4, 2, 5},
+                {1, 4, 5}, {3, 4, 5},
+                {0, 5, 5}, {2, 5, 5}, {4, 5, 5}
+            }
+        );
+        short[] buf = newBuf();
+        byte[]  len = newLen();
+        GenomeOps.initWarm(s, buf, len, 0);
+        assertThat(GenomeInvariants.check(buf, len, 0)).isTrue();
+        // Le troll opp (idx 3) n'a aucune target
+        assertThat(Genome.len(len, 0, 3)).isEqualTo(0);
+        // Au moins 3 targets globalement assignées (chaque own troll a son arbre voisin)
+        int total = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) total += Genome.len(len, 0, j);
+        assertThat(total).isGreaterThanOrEqualTo(3);
+    }
 }
