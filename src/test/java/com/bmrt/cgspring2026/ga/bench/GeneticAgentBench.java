@@ -43,7 +43,7 @@ class GeneticAgentBench {
         s.turn = 30;
         int[][] trees = {{3,3,TreeType.PLUM},{6,5,TreeType.LEMON},{8,2,TreeType.APPLE},
                          {10,6,TreeType.BANANA},{12,3,TreeType.PLUM},{4,5,TreeType.LEMON},
-                         {7,3,TreeType.APPLE},{11,5,TreeType.BANANA}};
+                         {7,3,TreeType.APPLE},{11,4,TreeType.BANANA}};
         for (int[] t : trees) {
             int i = s.treeCount++;
             s.treeType[i] = (byte) t[2];
