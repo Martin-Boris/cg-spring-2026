@@ -75,12 +75,10 @@ class GenomeOpsPrevBestTest {
         byte[]  dstLen = newPopLen();
         short[] prev = newPrevBuf();
         byte[]  prevLen = newPrevLen();
-        // prevLen[j] = 0 partout → segment destination doit être entièrement vide
         GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
             assertThat(Genome.len(dstLen, 0, j)).isEqualTo(0);
         }
-        // Et le segment buffer du slot 0 entièrement EMPTY_GENE
         int base = Genome.offset(0, 0);
         for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) {
             assertThat(dst[base + k]).isEqualTo(Genome.EMPTY_GENE);
