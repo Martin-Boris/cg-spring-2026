@@ -134,4 +134,68 @@ class GenomeOpsPrevBestTest {
             assertThat(dst[base + k]).isEqualTo(Genome.EMPTY_GENE);
         }
     }
+
+    @Test void keepsTailIntact() {
+        // DATA: no dead trees → order preserved as-is.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 5}, {2, 0, 5}, {3, 0, 5} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0}, {3, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(3);
+        int[][] expected = { {1, 0}, {2, 0}, {3, 0} };
+        for (int k = 0; k < 3; k++) {
+            short g = (short) Genome.gene(dst, 0, 0, k);
+            assertThat(Genome.geneX(g)).isEqualTo(expected[k][0]);
+            assertThat(Genome.geneY(g)).isEqualTo(expected[k][1]);
+        }
+    }
+
+    @Test void emptyWhenAllTreesDead() {
+        // DATA: all prev-best trees dead → empty segment.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 0}, {2, 0, 0} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(0);
+        int base = Genome.offset(0, 0);
+        for (int k = 0; k < Genome.MAX_TARGETS_PER_TROLL; k++) {
+            assertThat(dst[base + k]).isEqualTo(Genome.EMPTY_GENE);
+        }
+    }
+
+    @Test void satisfiesInvariants() {
+        // DATA: mixed scenario—2 own trolls + 1 opp, live/dead in prev-best.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0}, {0, 5, 5}, {1, 3, 3} },
+            new int[][]{ {1, 0, 5}, {2, 0, 0}, {3, 0, 5}, {4, 4, 5}, {5, 4, 0} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0}, {3, 0} });
+        putPrev(prev, prevLen, 1, new int[][]{ {5, 4}, {4, 4} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(GenomeInvariants.check(dst, dstLen, 0)).isTrue();
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2); // (2,0) dead, (1,0) and (3,0) kept
+        assertThat(Genome.len(dstLen, 0, 1)).isEqualTo(1); // (5,4) dead, (4,4) kept
+    }
 }
