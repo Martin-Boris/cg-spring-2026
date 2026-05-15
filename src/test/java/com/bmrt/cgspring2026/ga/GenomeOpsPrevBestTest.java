@@ -136,7 +136,7 @@ class GenomeOpsPrevBestTest {
     }
 
     @Test void keepsTailIntact() {
-        // DATA: no dead trees → order preserved as-is.
+        // Aucun arbre mort → l'ordre est conservé tel quel.
         GameState s = stateWith(
             new int[][]{ {0, 0, 0} },
             new int[][]{ {1, 0, 5}, {2, 0, 5}, {3, 0, 5} }
@@ -159,7 +159,7 @@ class GenomeOpsPrevBestTest {
     }
 
     @Test void emptyWhenAllTreesDead() {
-        // DATA: all prev-best trees dead → empty segment.
+        // Tous les arbres du prev-best sont morts → segment vide.
         GameState s = stateWith(
             new int[][]{ {0, 0, 0} },
             new int[][]{ {1, 0, 0}, {2, 0, 0} }
@@ -180,7 +180,7 @@ class GenomeOpsPrevBestTest {
     }
 
     @Test void satisfiesInvariants() {
-        // DATA: mixed scenario—2 own trolls + 1 opp, live/dead in prev-best.
+        // Scénario mixte : 2 trolls own + 1 opp, mélange vivants/morts dans le prev-best.
         GameState s = stateWith(
             new int[][]{ {0, 0, 0}, {0, 5, 5}, {1, 3, 3} },
             new int[][]{ {1, 0, 5}, {2, 0, 0}, {3, 0, 5}, {4, 4, 5}, {5, 4, 0} }
@@ -195,7 +195,7 @@ class GenomeOpsPrevBestTest {
         GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
 
         assertThat(GenomeInvariants.check(dst, dstLen, 0)).isTrue();
-        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2); // (2,0) dead, (1,0) and (3,0) kept
-        assertThat(Genome.len(dstLen, 0, 1)).isEqualTo(1); // (5,4) dead, (4,4) kept
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2); // (2,0) mort, (1,0) et (3,0) gardés
+        assertThat(Genome.len(dstLen, 0, 1)).isEqualTo(1); // (5,4) mort, (4,4) gardé
     }
 }
