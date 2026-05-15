@@ -59,4 +59,95 @@ public final class GenomeOps {
             Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
         }
     }
+
+    public static final double P_MUT_SWAP_INTRA = 0.40;
+    public static final double P_MUT_SWAP_INTER = 0.30;
+    public static final double P_MUT_REVERSE    = 0.20;
+    public static final double P_MUT_DELETE     = 0.10;
+
+    public static final int MUT_SWAP_INTRA = 0;
+    public static final int MUT_SWAP_INTER = 1;
+    public static final int MUT_REVERSE    = 2;
+    public static final int MUT_DELETE     = 3;
+
+    public static int pickMutationKind(SplittableRandom rng) {
+        double r = rng.nextDouble();
+        if (r < P_MUT_SWAP_INTRA) return MUT_SWAP_INTRA;
+        r -= P_MUT_SWAP_INTRA;
+        if (r < P_MUT_SWAP_INTER) return MUT_SWAP_INTER;
+        r -= P_MUT_SWAP_INTER;
+        if (r < P_MUT_REVERSE) return MUT_REVERSE;
+        return MUT_DELETE;
+    }
+
+    public static void runMutation(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        switch (pickMutationKind(rng)) {
+            case MUT_SWAP_INTRA -> mutateSwapIntra(buf, lenBuf, individuIdx, rng);
+            case MUT_SWAP_INTER -> mutateSwapInter(buf, lenBuf, individuIdx, rng);
+            case MUT_REVERSE    -> mutateReverse  (buf, lenBuf, individuIdx, rng);
+            case MUT_DELETE     -> mutateDelete   (buf, lenBuf, individuIdx, rng);
+            default -> throw new IllegalStateException();
+        }
+    }
+
+    /** Tire un troll avec len >= minLen parmi [0..MAX_TROLLS[. Retourne -1 si aucun. */
+    private static int pickTrollWithLen(byte[] lenBuf, int individuIdx, int minLen, SplittableRandom rng) {
+        int count = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            if (Genome.len(lenBuf, individuIdx, j) >= minLen) freeTrollsBuf[count++] = j;
+        }
+        if (count == 0) return -1;
+        return freeTrollsBuf[rng.nextInt(count)];
+    }
+
+    public static void mutateSwapIntra(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        int j = pickTrollWithLen(lenBuf, individuIdx, 2, rng);
+        if (j < 0) return;
+        int len = Genome.len(lenBuf, individuIdx, j);
+        int k1 = rng.nextInt(len);
+        int k2 = rng.nextInt(len);
+        if (k1 == k2) return;
+        int base = Genome.offset(individuIdx, j);
+        short tmp = buf[base + k1]; buf[base + k1] = buf[base + k2]; buf[base + k2] = tmp;
+    }
+
+    public static void mutateSwapInter(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        int j1 = pickTrollWithLen(lenBuf, individuIdx, 1, rng);
+        if (j1 < 0) return;
+        int j2 = pickTrollWithLen(lenBuf, individuIdx, 1, rng);
+        if (j2 < 0 || j1 == j2) return;
+        int len1 = Genome.len(lenBuf, individuIdx, j1);
+        int len2 = Genome.len(lenBuf, individuIdx, j2);
+        int k1 = rng.nextInt(len1);
+        int k2 = rng.nextInt(len2);
+        int b1 = Genome.offset(individuIdx, j1);
+        int b2 = Genome.offset(individuIdx, j2);
+        short tmp = buf[b1 + k1]; buf[b1 + k1] = buf[b2 + k2]; buf[b2 + k2] = tmp;
+    }
+
+    public static void mutateReverse(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        int j = pickTrollWithLen(lenBuf, individuIdx, 2, rng);
+        if (j < 0) return;
+        int len = Genome.len(lenBuf, individuIdx, j);
+        int a = rng.nextInt(len);
+        int b = rng.nextInt(len);
+        if (a == b) return;
+        if (a > b) { int t = a; a = b; b = t; }
+        int base = Genome.offset(individuIdx, j);
+        while (a < b) {
+            short tmp = buf[base + a]; buf[base + a] = buf[base + b]; buf[base + b] = tmp;
+            a++; b--;
+        }
+    }
+
+    public static void mutateDelete(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        int j = pickTrollWithLen(lenBuf, individuIdx, 1, rng);
+        if (j < 0) return;
+        int len = Genome.len(lenBuf, individuIdx, j);
+        int k = rng.nextInt(len);
+        int base = Genome.offset(individuIdx, j);
+        for (int i = k; i < len - 1; i++) buf[base + i] = buf[base + i + 1];
+        buf[base + len - 1] = Genome.EMPTY_GENE;
+        Genome.setLen(lenBuf, individuIdx, j, len - 1);
+    }
 }
