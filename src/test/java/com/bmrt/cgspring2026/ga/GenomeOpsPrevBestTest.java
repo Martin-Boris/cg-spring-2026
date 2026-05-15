@@ -98,6 +98,27 @@ class GenomeOpsPrevBestTest {
         assertThat(Genome.geneY(g0)).isEqualTo(0);
     }
 
+    @Test void compactsDeadTreeInMiddle() {
+        // Trolls (0,0). Prev-best troll 0 : [(1,0), (3,0)_MORT, (2,0)]. Attendu : [(1,0), (2,0)].
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 5}, {3, 0, 0}, {2, 0, 5} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {3, 0}, {2, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2);
+        short g0 = (short) Genome.gene(dst, 0, 0, 0);
+        short g1 = (short) Genome.gene(dst, 0, 0, 1);
+        assertThat(Genome.geneX(g0)).isEqualTo(1); assertThat(Genome.geneY(g0)).isEqualTo(0);
+        assertThat(Genome.geneX(g1)).isEqualTo(2); assertThat(Genome.geneY(g1)).isEqualTo(0);
+    }
+
     @Test void emptyPrevLenProducesEmptySegment() {
         GameState s = stateWith(new int[][]{ {0, 0, 0} }, new int[][]{ {3, 3, 5} });
         short[] dst = newPopBuf();
