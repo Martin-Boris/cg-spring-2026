@@ -28,6 +28,9 @@ public final class GameState {
     public final byte[] treeFruits   = new byte[MAX_TREES];
     public final byte[] treeCooldown = new byte[MAX_TREES];
 
+    /** Cell -> live tree index, -1 if none. byte suffices because MAX_TREES <= 127. Size W*H. */
+    public byte[] treeCellIndex;
+
     public int trollCount;
     public final byte[] trollId     = new byte[MAX_TROLLS];
     public final byte[] trollPlayer = new byte[MAX_TROLLS];
@@ -75,6 +78,7 @@ public final class GameState {
             treeFruits[i]   = (byte) in.nextInt();
             treeCooldown[i] = (byte) in.nextInt();
         }
+        treeCellIndex = null; // invalidate; will be lazily rebuilt on first use
         trollCount = in.nextInt();
         for (int i = 0; i < trollCount; i++) {
             trollId[i]     = (byte) in.nextInt();
@@ -102,6 +106,17 @@ public final class GameState {
         System.arraycopy(src.treeHealth,   0, treeHealth,   0, MAX_TREES);
         System.arraycopy(src.treeFruits,   0, treeFruits,   0, MAX_TREES);
         System.arraycopy(src.treeCooldown, 0, treeCooldown, 0, MAX_TREES);
+        if (treeCellIndex == null || treeCellIndex.length < width * height) {
+            treeCellIndex = new byte[width * height];
+        }
+        if (src.treeCellIndex != null) {
+            System.arraycopy(src.treeCellIndex, 0, treeCellIndex, 0, width * height);
+        } else {
+            java.util.Arrays.fill(treeCellIndex, (byte) -1);
+            for (int i = 0; i < treeCount; i++) {
+                if (treeHealth[i] > 0) treeCellIndex[(treeY[i] & 0xFF) * width + (treeX[i] & 0xFF)] = (byte) i;
+            }
+        }
         trollCount = src.trollCount;
         System.arraycopy(src.trollId,        0, trollId,        0, MAX_TROLLS);
         System.arraycopy(src.trollPlayer,    0, trollPlayer,    0, MAX_TROLLS);
@@ -135,10 +150,74 @@ public final class GameState {
     }
 
     public int treeIndexAt(int x, int y) {
+        if (treeCellIndex == null) return slowTreeIndexAt(x, y);
+        int v = treeCellIndex[y * width + x];
+        return (v == -1) ? -1 : (v & 0xFF);
+    }
+
+    private int slowTreeIndexAt(int x, int y) {
         for (int i = 0; i < treeCount; i++) {
-            if (treeX[i] == (byte) x && treeY[i] == (byte) y) return i;
+            if (treeX[i] == (byte) x && treeY[i] == (byte) y && treeHealth[i] > 0) return i;
         }
         return -1;
+    }
+
+    private void ensureTreeCellIndex() {
+        if (treeCellIndex == null || treeCellIndex.length < width * height) {
+            treeCellIndex = new byte[width * height];
+            java.util.Arrays.fill(treeCellIndex, (byte) -1);
+            for (int i = 0; i < treeCount; i++) {
+                if (treeHealth[i] > 0) treeCellIndex[(treeY[i] & 0xFF) * width + (treeX[i] & 0xFF)] = (byte) i;
+            }
+        }
+    }
+
+    /** Adds a tree, returns its index. The tree must be alive (health > 0). */
+    public int addTree(byte type, int x, int y, int size, int health) {
+        ensureTreeCellIndex();
+        int idx = treeCount++;
+        treeType[idx]     = type;
+        treeX[idx]        = (byte) x;
+        treeY[idx]        = (byte) y;
+        treeSize[idx]     = (byte) size;
+        treeHealth[idx]   = (byte) health;
+        treeFruits[idx]   = 0;
+        treeCooldown[idx] = 0;
+        treeCellIndex[y * width + x] = (byte) idx;
+        return idx;
+    }
+
+    /** Marks tree as dead (health=0) and removes it from the index. */
+    public void killTreeAt(int idx) {
+        ensureTreeCellIndex();
+        treeHealth[idx] = 0;
+        treeCellIndex[(treeY[idx] & 0xFF) * width + (treeX[idx] & 0xFF)] = -1;
+    }
+
+    /** Compacts dead trees by swap-last. Maintains treeCellIndex for moved live trees. */
+    public void compactDeadTrees() {
+        ensureTreeCellIndex();
+        int i = 0;
+        while (i < treeCount) {
+            if (treeHealth[i] <= 0) {
+                int last = treeCount - 1;
+                if (i != last) {
+                    treeType[i]     = treeType[last];
+                    treeX[i]        = treeX[last];
+                    treeY[i]        = treeY[last];
+                    treeSize[i]     = treeSize[last];
+                    treeHealth[i]   = treeHealth[last];
+                    treeFruits[i]   = treeFruits[last];
+                    treeCooldown[i] = treeCooldown[last];
+                    if (treeHealth[i] > 0) {
+                        treeCellIndex[(treeY[i] & 0xFF) * width + (treeX[i] & 0xFF)] = (byte) i;
+                    }
+                }
+                treeCount--;
+            } else {
+                i++;
+            }
+        }
     }
 
     public static byte tileAt(int x, int y) {

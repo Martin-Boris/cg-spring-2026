@@ -35,7 +35,7 @@ public final class Simulator {
         applyDrops(s, actions, n);
         applyMines(s, actions, n);
         plantTick(s);
-        compactDeadTrees(s);
+        s.compactDeadTrees();
         s.turn++;
     }
 
@@ -224,7 +224,7 @@ public final class Simulator {
             int idx = Action.trollIdx(a);
             if (idx >= s.trollCount) continue;
             int tx = s.trollX[idx] & 0xFF, ty = s.trollY[idx] & 0xFF;
-            int treeIdx = findTreeAt(s, tx, ty);
+            int treeIdx = s.treeIndexAt(tx, ty);
             if (treeIdx < 0) continue;
             if (harvestTreeProcessed[treeIdx]) continue;
             // collect all HARVEST actions targeting this tree, in actions[] order
@@ -257,13 +257,6 @@ public final class Simulator {
         }
     }
 
-    static int findTreeAt(GameState s, int x, int y) {
-        for (int i = 0; i < s.treeCount; i++) {
-            if ((s.treeX[i] & 0xFF) == x && (s.treeY[i] & 0xFF) == y && s.treeHealth[i] > 0) return i;
-        }
-        return -1;
-    }
-
     static void applyChops(GameState s, int[] actions, int n) {
         for (int t = 0; t < s.treeCount; t++) chopTreeProcessed[t] = false;
         for (int i = 0; i < n; i++) {
@@ -273,7 +266,7 @@ public final class Simulator {
             if (idx >= s.trollCount) continue;
             if ((s.trollCP[idx] & 0xFF) == 0) continue;
             int tx = s.trollX[idx] & 0xFF, ty = s.trollY[idx] & 0xFF;
-            int treeIdx = findTreeAt(s, tx, ty);
+            int treeIdx = s.treeIndexAt(tx, ty);
             if (treeIdx < 0) continue;
             if (chopTreeProcessed[treeIdx]) continue;
             // collect concurrent CHOP actions on this tree
@@ -289,12 +282,17 @@ public final class Simulator {
             }
             chopTreeProcessed[treeIdx] = true;
             // damage sequentially
+            boolean killed = false;
             for (int k = 0; k < shared; k++) {
                 int dmg = s.trollCP[harvestSharedTrolls[k]] & 0xFF;
                 int h = (s.treeHealth[treeIdx] & 0xFF) - dmg;
-                s.treeHealth[treeIdx] = (byte) Math.max(h, 0);
+                if (h <= 0) {
+                    if (!killed) { s.killTreeAt(treeIdx); killed = true; }
+                } else {
+                    s.treeHealth[treeIdx] = (byte) h;
+                }
             }
-            if (s.treeHealth[treeIdx] != 0) continue;
+            if (!killed) continue;
             // distribute wood
             int size = s.treeSize[treeIdx] & 0xFF;
             int remaining = size;
@@ -345,7 +343,7 @@ public final class Simulator {
             int tx = s.trollX[idx] & 0xFF, ty = s.trollY[idx] & 0xFF;
             // skip if not grass, or already a tree present
             if (GameState.tiles[ty * GameState.width + tx] != TileType.GRASS) continue;
-            if (findTreeAt(s, tx, ty) >= 0) continue;
+            if (s.treeIndexAt(tx, ty) >= 0) continue;
             // collect concurrent PLANT actions on same cell
             int firstType = Action.arg1(a);
             boolean contradictory = false;
@@ -371,14 +369,7 @@ public final class Simulator {
             if (sharedCount == 0 || contradictory) continue;
             // all agree; each loses a seed; exactly one tree is created
             int treeType = firstType;
-            int newIdx = s.treeCount++;
-            s.treeType[newIdx]     = (byte) treeType;
-            s.treeX[newIdx]        = (byte) tx;
-            s.treeY[newIdx]        = (byte) ty;
-            s.treeSize[newIdx]     = 0;
-            s.treeHealth[newIdx]   = (byte) initialPlantHealth(treeType);
-            s.treeFruits[newIdx]   = 0;
-            s.treeCooldown[newIdx] = 0;
+            s.addTree((byte) treeType, tx, ty, 0, initialPlantHealth(treeType));
             for (int k = 0; k < sharedCount; k++) {
                 int jdx = sharedIdx[k];
                 int jtype = sharedType[k];
@@ -530,27 +521,6 @@ public final class Simulator {
     static byte tileAtOrNone(int x, int y) {
         if (x < 0 || x >= GameState.width || y < 0 || y >= GameState.height) return -1;
         return GameState.tiles[y * GameState.width + x];
-    }
-
-    static void compactDeadTrees(GameState s) {
-        int i = 0;
-        while (i < s.treeCount) {
-            if (s.treeHealth[i] <= 0) {
-                int last = s.treeCount - 1;
-                if (i != last) {
-                    s.treeType[i]     = s.treeType[last];
-                    s.treeX[i]        = s.treeX[last];
-                    s.treeY[i]        = s.treeY[last];
-                    s.treeSize[i]     = s.treeSize[last];
-                    s.treeHealth[i]   = s.treeHealth[last];
-                    s.treeFruits[i]   = s.treeFruits[last];
-                    s.treeCooldown[i] = s.treeCooldown[last];
-                }
-                s.treeCount--;
-            } else {
-                i++;
-            }
-        }
     }
 
     static void plantTick(GameState s) {
