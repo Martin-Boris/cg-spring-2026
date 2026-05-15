@@ -223,4 +223,34 @@ class GreedyAgentDecideTest {
         assertThat(n).isEqualTo(1);
         assertThat(Action.type(buf[0])).isNotEqualTo((int) ActionType.TRAIN);
     }
+
+    @Test void decideForOpponentReturnsMoveTowardsClosestFreeTreeForOppTroll() {
+        GameState s = new GameState();
+        s.trollCount = 1;
+        s.trollPlayer[0] = 1; // adversaire
+        s.trollX[0] = 5; s.trollY[0] = 4;
+        s.treeCount = 1;
+        s.treeX[0] = 5; s.treeY[0] = 0;
+        s.treeHealth[0] = 5;
+        boolean[] taken = new boolean[GameState.MAX_TREES];
+        int a = GreedyAgent.decideForOpponent(s, 0, taken);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.arg1(a)).isEqualTo(5);
+        assertThat(Action.arg2(a)).isEqualTo(0);
+        assertThat(taken[0]).isTrue();
+    }
+
+    @Test void decideForOpponentRespectsTreeTakenBuf() {
+        GameState s = new GameState();
+        s.trollCount = 1;
+        s.trollPlayer[0] = 1;
+        s.trollX[0] = 5; s.trollY[0] = 4;
+        s.treeCount = 1;
+        s.treeX[0] = 5; s.treeY[0] = 0;
+        s.treeHealth[0] = 5;
+        boolean[] taken = new boolean[GameState.MAX_TREES];
+        taken[0] = true;
+        int a = GreedyAgent.decideForOpponent(s, 0, taken);
+        assertThat(Action.type(a)).isEqualTo((int) ActionType.WAIT);
+    }
 }

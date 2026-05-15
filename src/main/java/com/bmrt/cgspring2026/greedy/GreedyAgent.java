@@ -102,6 +102,27 @@ public final class GreedyAgent {
         return count;
     }
 
+    public static int decideForOpponent(GameState s, int trollIdx, boolean[] oppTreeTakenBuf) {
+        int treeIdx = pickClosestFreeTreeWithBuf(s, trollIdx, oppTreeTakenBuf);
+        if (treeIdx >= 0) oppTreeTakenBuf[treeIdx] = true;
+        return decideForTroll(s, trollIdx, treeIdx);
+    }
+
+    private static int pickClosestFreeTreeWithBuf(GameState s, int trollIdx, boolean[] taken) {
+        int tx = s.trollX[trollIdx] & 0xFF;
+        int ty = s.trollY[trollIdx] & 0xFF;
+        int best = -1;
+        int bestDist = Integer.MAX_VALUE;
+        for (int t = 0; t < s.treeCount; t++) {
+            if (taken[t]) continue;
+            if (s.treeHealth[t] <= 0) continue;
+            int d = PathTable.distance(tx, ty, s.treeX[t] & 0xFF, s.treeY[t] & 0xFF);
+            if (d == PathTable.UNREACHABLE) continue;
+            if (d < bestDist) { bestDist = d; best = t; }
+        }
+        return best;
+    }
+
     private static int pickClosestFreeTree(GameState s, int trollIdx) {
         int tx = s.trollX[trollIdx] & 0xFF;
         int ty = s.trollY[trollIdx] & 0xFF;
