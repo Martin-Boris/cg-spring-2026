@@ -98,20 +98,30 @@ class GeneticAgentPrevBestTest {
     }
 
     @Test void secondTurnSlotZeroSeededFromPrevBest() {
+        // Forcer un stash que initWarm ne produirait pas (far tree en premier)
+        // pour discriminer la branche hasPrevBest=true du fallback.
         GameState s = simpleState();
         GeneticAgent agent = new GeneticAgent();
         long deadline = System.nanoTime() - 1;
         int[] out = new int[GameState.MAX_TROLLS + 1];
 
-        // Tour 1 — peuple prevBestBuf/prevBestLen
+        // Tour 1 — peuple le stash naturellement
         agent.decide(s, deadline, out);
-        // Snapshot du stash avant tour 2
+
+        // Réécriture du stash : (5,5) avant (1,0). initWarm placerait (1,0) en premier (closest).
+        java.util.Arrays.fill(agent.prevBestBuf, Genome.EMPTY_GENE);
+        java.util.Arrays.fill(agent.prevBestLen, (byte) 0);
+        agent.prevBestBuf[0] = Genome.encode(5, 5);
+        agent.prevBestBuf[1] = Genome.encode(1, 0);
+        agent.prevBestLen[0] = 2;
+
         short[] stashBuf = java.util.Arrays.copyOf(agent.prevBestBuf, Genome.SLOTS_PER_GENOME);
         byte[]  stashLen = java.util.Arrays.copyOf(agent.prevBestLen, GameState.MAX_TROLLS);
 
-        // Tour 2 — initPopulation doit injecter prev-best (compacté = identique ici) au slot 0
+        // Tour 2 — initPopulation doit consommer le stash (compactage identité ici)
         agent.decide(s, deadline, out);
 
+        // Slot 0 == stash (et donc (5,5) en gène 0, distinct de ce que initWarm aurait fait)
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
             assertThat(Genome.len(agent.pop.curLen, 0, j))
                 .as("len troll %d", j)
