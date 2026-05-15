@@ -139,4 +139,27 @@ class GenomeOpsWarmStartTest {
         assertThat(Genome.geneX(t1k0)).isEqualTo(5);
         assertThat(Genome.geneY(t1k0)).isEqualTo(4);
     }
+
+    @Test void uniquenessWhenTrollsCompeteForSameTree() {
+        // T0 (0,0), T1 (2,0). Un seul arbre proche en (1,0) (d=1 pour les deux).
+        // En round-robin couche 0 : T0 prend (1,0) ; T1 doit prendre un autre arbre ou rien.
+        // Ajoutons un autre arbre lointain en (5,5) pour que T1 ait quelque chose.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0}, {0, 2, 0} },
+            new int[][]{ {1, 0, 5}, {5, 5, 5} }
+        );
+        short[] buf = newBuf();
+        byte[]  len = newLen();
+        GenomeOps.initWarm(s, buf, len, 0);
+        // T0 prend (1,0)
+        short t0k0 = (short) Genome.gene(buf, 0, 0, 0);
+        assertThat(Genome.geneX(t0k0)).isEqualTo(1);
+        assertThat(Genome.geneY(t0k0)).isEqualTo(0);
+        // T1 ne prend PAS (1,0) ; il prend (5,5)
+        short t1k0 = (short) Genome.gene(buf, 0, 1, 0);
+        assertThat(Genome.geneX(t1k0)).isEqualTo(5);
+        assertThat(Genome.geneY(t1k0)).isEqualTo(5);
+        // Invariants tenus
+        assertThat(GenomeInvariants.check(buf, len, 0)).isTrue();
+    }
 }
