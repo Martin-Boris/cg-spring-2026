@@ -31,6 +31,17 @@ public final class TrollPolicy {
         return count;
     }
 
+    public static int fillOwnActions(GameState s, short[] popBuf, byte[] popLen, int idx,
+                                      int[] cursor, int[] outActions) {
+        int count = 0;
+        for (int trollIdx = 0; trollIdx < s.trollCount; trollIdx++) {
+            if ((s.trollPlayer[trollIdx] & 0xFF) == 0) {
+                outActions[count++] = decideForOwnTroll(s, popBuf, popLen, idx, cursor, trollIdx);
+            }
+        }
+        return count;
+    }
+
     private static int decideForOwnTroll(GameState s, short[] popBuf, byte[] popLen, int idx,
                                          int[] cursor, int trollIdx) {
         int tx = s.trollX[trollIdx] & 0xFF;

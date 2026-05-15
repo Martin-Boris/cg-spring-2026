@@ -8,20 +8,18 @@ import java.util.SplittableRandom;
 public final class GeneticAgent {
 
     public static final long TURN_BUDGET_NS = 45_000_000L;
-    public static final long INIT_BUDGET_NS = 900_000_000L;
+    public static final long INIT_BUDGET_NS = 950_000_000L;
     public static final double P_CROSSOVER = 0.70;
-
-    private final GameState scratch = new GameState();
     final Population pop = new Population();
-    final short[] prevBestBuf  = new short[Genome.SLOTS_PER_GENOME];
-    final byte[]  prevBestLen  = new byte[GameState.MAX_TROLLS];
-    boolean       hasPrevBest  = false;
+    final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
+    final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
+    private final GameState scratch = new GameState();
     private final SplittableRandom rng = new SplittableRandom();
     private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
-
+    boolean hasPrevBest = false;
+    int lastBestIdx;
     private int lastGenCount;
     private double lastBestFitness;
-    int lastBestIdx;
 
     public GeneticAgent() {
     }
@@ -65,15 +63,15 @@ public final class GeneticAgent {
 
         // Stash du best pour réinjection au tour suivant
         System.arraycopy(pop.cur, Genome.offset(lastBestIdx, 0),
-                         prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
+                prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
         System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
-                         prevBestLen, 0, GameState.MAX_TROLLS);
+                prevBestLen, 0, GameState.MAX_TROLLS);
         hasPrevBest = true;
 
         // 4. Génère les actions du tick 0
         int[] cursor = TrollPolicy.cursorBuf;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
-        int n = TrollPolicy.fillActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
+        int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
 
         // 5. Ajouter TRAIN au tour 0
         if (state.turn == 0) {
@@ -98,7 +96,7 @@ public final class GeneticAgent {
     private void initPopulation(GameState state) {
         if (hasPrevBest) {
             GenomeOps.initFromPrevBest(state, prevBestBuf, prevBestLen,
-                                       pop.cur, pop.curLen, 0);
+                    pop.cur, pop.curLen, 0);
             GenomeOps.initWarm(state, pop.cur, pop.curLen, 1);
             for (int i = 2; i < Genome.POP_SIZE; i++) {
                 GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);

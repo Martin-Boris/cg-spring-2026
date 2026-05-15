@@ -107,6 +107,20 @@ class GeneticAgentTest {
         assertThat(agent.lastBestFitness()).isNotNaN();
     }
 
+    @Test void decideReturnsOnlyOwnTrollActionsWhenOpponentPresent() {
+        GameState s = seededState();
+        s.trollCount = 2;
+        s.trollPlayer[1] = 1;
+        s.trollX[1] = 5; s.trollY[1] = 3;
+        s.trollMS[1] = 2;
+        s.turn = 5;
+        GeneticAgent agent = new GeneticAgent();
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        long deadline = System.nanoTime() + 100_000_000L;
+        int n = agent.decide(s, deadline, out);
+        assertThat(n).isEqualTo(1);
+    }
+
     @Test void geneticAgentMatchesOrBeatsGreedyOnSimpleScenario() {
         // Setup : 1 troll me, 2 arbres ; le GA doit obtenir une fitness ≥ greedy
         GameState src = seededState();
