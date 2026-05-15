@@ -12,6 +12,9 @@ public final class GenomeOps {
     private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
     private static final int[]   ownTrollsBuf    = new int[GameState.MAX_TROLLS];
     private static final int[]   freeTrollsBuf   = new int[GameState.MAX_TROLLS];
+    private static final boolean[] warmTreeTakenBuf = new boolean[GameState.MAX_TREES];
+    private static final int[]     warmCurX         = new int[GameState.MAX_TROLLS];
+    private static final int[]     warmCurY         = new int[GameState.MAX_TROLLS];
 
     private GenomeOps() {}
 
@@ -58,6 +61,30 @@ public final class GenomeOps {
             Genome.setGene(buf, individuIdx, chosenTroll, len, shuffleBuf[i]);
             Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
         }
+    }
+
+    public static void initWarm(GameState state, short[] buf, byte[] lenBuf, int individuIdx) {
+        // 1. Reset segment de cet individu
+        int base = Genome.offset(individuIdx, 0);
+        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) buf[base + k] = Genome.EMPTY_GENE;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(lenBuf, individuIdx, j, 0);
+
+        // 2. Trolls own
+        int ownCount = 0;
+        for (int i = 0; i < state.trollCount; i++) {
+            if ((state.trollPlayer[i] & 0xFF) == 0) ownTrollsBuf[ownCount++] = i;
+        }
+        if (ownCount == 0) return;
+
+        // 3. Init position courante par troll + reset trees pris
+        for (int k = 0; k < ownCount; k++) {
+            int troll = ownTrollsBuf[k];
+            warmCurX[troll] = state.trollX[troll] & 0xFF;
+            warmCurY[troll] = state.trollY[troll] & 0xFF;
+        }
+        for (int t = 0; t < state.treeCount; t++) warmTreeTakenBuf[t] = false;
+
+        // 4. Boucle round-robin par couche — à compléter dans la tâche suivante
     }
 
     public static final double P_MUT_SWAP_INTRA = 0.40;
