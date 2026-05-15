@@ -198,4 +198,32 @@ class GenomeOpsPrevBestTest {
         assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2); // (2,0) mort, (1,0) et (3,0) gardés
         assertThat(Genome.len(dstLen, 0, 1)).isEqualTo(1); // (5,4) mort, (4,4) gardé
     }
+
+    @Test void doesNotTouchOtherIndividuals() {
+        // Pré-remplir le slot 1 avec un sentinel, écrire au slot 0, vérifier que le slot 1 reste intact.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 5} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        // Sentinel au slot 1, troll 0, k=0,1 (valeurs arbitraires non-EMPTY)
+        int base1 = Genome.offset(1, 0);
+        dst[base1] = Genome.encode(4, 4);
+        dst[base1 + 1] = Genome.encode(5, 5);
+        Genome.setLen(dstLen, 1, 0, 2);
+
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        // Slot 0 écrit
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
+        // Slot 1 intact
+        assertThat(Genome.len(dstLen, 1, 0)).isEqualTo(2);
+        assertThat(dst[base1]).isEqualTo(Genome.encode(4, 4));
+        assertThat(dst[base1 + 1]).isEqualTo(Genome.encode(5, 5));
+    }
 }
