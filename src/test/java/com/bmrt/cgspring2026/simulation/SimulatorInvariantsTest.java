@@ -72,6 +72,49 @@ class SimulatorInvariantsTest {
         }
     }
 
+    private static void assertTrollIndexConsistent(GameState s) {
+        int W = GameState.width;
+        int H = GameState.height;
+        for (int i = 0; i < s.trollCount; i++) {
+            int x = s.trollX[i] & 0xFF, y = s.trollY[i] & 0xFF;
+            assertThat(s.trollCellIndex[y * W + x] & 0xFF)
+                .as("troll %d at (%d,%d)", i, x, y)
+                .isEqualTo(i);
+        }
+        int counted = 0;
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                byte v = s.trollCellIndex[y * W + x];
+                if (v != -1) {
+                    int idx = v & 0xFF;
+                    assertThat(idx).isLessThan(s.trollCount);
+                    assertThat(s.trollX[idx] & 0xFF).isEqualTo(x);
+                    assertThat(s.trollY[idx] & 0xFF).isEqualTo(y);
+                    counted++;
+                }
+            }
+        }
+        assertThat(counted).isEqualTo(s.trollCount);
+    }
+
+    @Test void trollIndexRemainsConsistentAfterTrainAndMove() {
+        GameState s = new GameState();
+        s.shackInventory[ResourceType.PLUM]  = 100;
+        s.shackInventory[ResourceType.LEMON] = 100;
+        s.shackInventory[ResourceType.APPLE] = 100;
+        s.shackInventory[ResourceType.IRON]  = 100;
+        int[] acts = { Action.train(1, 1, 1, 0) };
+        Simulator.tick(s, acts, 1);
+        assertTrollIndexConsistent(s);
+        assertThat(s.trollCount).isEqualTo(1);
+        int t = 0;
+        // shackMeX=1, shackMeY=1 in the BeforeEach grid — move right
+        int dx = (GameState.shackMeX + 1), dy = GameState.shackMeY;
+        int[] acts2 = { Action.move(t, dx, dy) };
+        Simulator.tick(s, acts2, 1);
+        assertTrollIndexConsistent(s);
+    }
+
     @Test void treeIndexRemainsConsistentAfterPlantChopCompact() {
         GameState s = new GameState();
         s.trollCount = 1;

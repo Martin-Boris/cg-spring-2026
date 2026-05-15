@@ -43,6 +43,12 @@ public final class GameState {
 
     public final byte[] trollInventory = new byte[MAX_TROLLS * ResourceType.COUNT];
 
+    /** Cell -> troll index, -1 if none. byte suffices because MAX_TROLLS = 32. Size W*H. */
+    public byte[] trollCellIndex;
+
+    /** Next ID to assign; monotonically increasing. Reconstructed from readTurn. */
+    public int nextTrollId;
+
     public GameState() {
     }
 
@@ -93,6 +99,12 @@ public final class GameState {
                 trollInventory[i * ResourceType.COUNT + r] = (byte) in.nextInt();
             }
         }
+        trollCellIndex = null; // invalidate; will be lazily rebuilt on first use
+        nextTrollId = 0;
+        for (int i = 0; i < trollCount; i++) {
+            int id = trollId[i] & 0xFF;
+            if (id >= nextTrollId) nextTrollId = id + 1;
+        }
     }
 
     public void copyFrom(GameState src) {
@@ -127,6 +139,18 @@ public final class GameState {
         System.arraycopy(src.trollHP,        0, trollHP,        0, MAX_TROLLS);
         System.arraycopy(src.trollCP,        0, trollCP,        0, MAX_TROLLS);
         System.arraycopy(src.trollInventory, 0, trollInventory, 0, MAX_TROLLS * ResourceType.COUNT);
+        nextTrollId = src.nextTrollId;
+        if (trollCellIndex == null || trollCellIndex.length < width * height) {
+            trollCellIndex = new byte[width * height];
+        }
+        if (src.trollCellIndex != null) {
+            System.arraycopy(src.trollCellIndex, 0, trollCellIndex, 0, width * height);
+        } else {
+            java.util.Arrays.fill(trollCellIndex, (byte) -1);
+            for (int i = 0; i < trollCount; i++) {
+                trollCellIndex[(trollY[i] & 0xFF) * width + (trollX[i] & 0xFF)] = (byte) i;
+            }
+        }
     }
 
     public void apply(int action) {
@@ -140,6 +164,54 @@ public final class GameState {
              + shackInventory[base + ResourceType.APPLE]
              + shackInventory[base + ResourceType.BANANA]
              + 4 * shackInventory[base + ResourceType.WOOD];
+    }
+
+    private void ensureTrollCellIndex() {
+        if (trollCellIndex == null || trollCellIndex.length < width * height) {
+            trollCellIndex = new byte[width * height];
+            java.util.Arrays.fill(trollCellIndex, (byte) -1);
+            int maxId = -1;
+            for (int i = 0; i < trollCount; i++) {
+                trollCellIndex[(trollY[i] & 0xFF) * width + (trollX[i] & 0xFF)] = (byte) i;
+                int id = trollId[i] & 0xFF;
+                if (id > maxId) maxId = id;
+            }
+            if (nextTrollId <= maxId) nextTrollId = maxId + 1;
+        }
+    }
+
+    public int trollIndexAtCell(int x, int y) {
+        ensureTrollCellIndex();
+        byte v = trollCellIndex[y * width + x];
+        return (v == -1) ? -1 : (v & 0xFF);
+    }
+
+    /** Spawns a troll at (x,y) with auto-incremented ID. Returns its index. */
+    public int addTroll(int player, int x, int y, int ms, int cc, int hp, int cp) {
+        ensureTrollCellIndex();
+        int idx = trollCount++;
+        trollPlayer[idx] = (byte) player;
+        trollId[idx]     = (byte) nextTrollId++;
+        trollX[idx]      = (byte) x;
+        trollY[idx]      = (byte) y;
+        trollMS[idx]     = (byte) ms;
+        trollCC[idx]     = (byte) cc;
+        trollHP[idx]     = (byte) hp;
+        trollCP[idx]     = (byte) cp;
+        int invBase = idx * ResourceType.COUNT;
+        for (int r = 0; r < ResourceType.COUNT; r++) trollInventory[invBase + r] = 0;
+        trollCellIndex[y * width + x] = (byte) idx;
+        return idx;
+    }
+
+    /** Moves troll idx to (x,y). Maintains trollCellIndex. */
+    public void moveTroll(int idx, int x, int y) {
+        ensureTrollCellIndex();
+        int W = width;
+        trollCellIndex[(trollY[idx] & 0xFF) * W + (trollX[idx] & 0xFF)] = -1;
+        trollX[idx] = (byte) x;
+        trollY[idx] = (byte) y;
+        trollCellIndex[y * W + x] = (byte) idx;
     }
 
     public int trollIndexById(int id) {

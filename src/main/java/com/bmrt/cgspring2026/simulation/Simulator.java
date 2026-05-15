@@ -37,6 +37,29 @@ public final class Simulator {
         plantTick(s);
         s.compactDeadTrees();
         s.turn++;
+        if (DEBUG_INVARIANTS) checkInvariants(s);
+    }
+
+    static void checkInvariants(GameState s) {
+        int W = GameState.width;
+        if (s.trollCellIndex != null) {
+            for (int i = 0; i < s.trollCount; i++) {
+                int x = s.trollX[i] & 0xFF, y = s.trollY[i] & 0xFF;
+                if ((s.trollCellIndex[y * W + x] & 0xFF) != i) {
+                    throw new IllegalStateException("trollCellIndex inconsistent at troll " + i);
+                }
+            }
+        }
+        if (s.treeCellIndex != null) {
+            for (int i = 0; i < s.treeCount; i++) {
+                if (s.treeHealth[i] > 0) {
+                    int x = s.treeX[i] & 0xFF, y = s.treeY[i] & 0xFF;
+                    if ((s.treeCellIndex[y * W + x] & 0xFF) != i) {
+                        throw new IllegalStateException("treeCellIndex inconsistent at tree " + i);
+                    }
+                }
+            }
+        }
     }
 
     // Scratch: per-troll requested target (or -1 = no move / stationary)
@@ -135,8 +158,7 @@ public final class Simulator {
                 int destCell = moveTargetY[idx] * W + moveTargetX[idx];
                 if (!occupied[destCell] && (allowBlocked || freq[destCell] == 1)) {
                     occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = false;
-                    s.trollX[idx] = (byte) moveTargetX[idx];
-                    s.trollY[idx] = (byte) moveTargetY[idx];
+                    s.moveTroll(idx, moveTargetX[idx], moveTargetY[idx]);
                     occupied[destCell] = true;
                     resolverDone[idx] = true;
                     progressed = true;
@@ -188,9 +210,8 @@ public final class Simulator {
                     }
                     for (int c = 0; c < len; c++) {
                         int idx = cycle[c];
-                        s.trollX[idx] = (byte) moveTargetX[idx];
-                        s.trollY[idx] = (byte) moveTargetY[idx];
-                        occupied[moveTargetY[idx] * W + moveTargetX[idx]] = true;
+                        s.moveTroll(idx, moveTargetX[idx], moveTargetY[idx]);
+                        occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = true;
                         resolverDone[idx] = true;
                     }
                     progressed = true;
@@ -397,67 +418,42 @@ public final class Simulator {
             int cc = Action.trainCC(a);
             int hp = Action.trainHP(a);
             int cp = Action.trainCP(a);
-            // try player 0 first, then player 1
             int player = -1;
+            int chosenN = 0;
             for (int p = 0; p < 2; p++) {
-                if (!canAffordTrain(s, p, ms, cc, hp, cp)) continue;
-                if (shackOccupied(s, p)) continue;
-                player = p; break;
+                int sx = (p == 0) ? GameState.shackMeX : GameState.shackOppX;
+                int sy = (p == 0) ? GameState.shackMeY : GameState.shackOppY;
+                if (s.trollIndexAtCell(sx, sy) >= 0) continue;
+                int nUnits = countOwnTrolls(s, p);
+                if (!canAffordTrainWithCount(s, p, ms, cc, hp, cp, nUnits)) continue;
+                player = p;
+                chosenN = nUnits;
+                break;
             }
             if (player < 0) continue;
-            // deduct costs
             int base = player * ResourceType.COUNT;
-            int nUnits = countOwnTrolls(s, player);
-            s.shackInventory[base + ResourceType.PLUM]  -= nUnits + ms * ms;
-            s.shackInventory[base + ResourceType.LEMON] -= nUnits + cc * cc;
-            s.shackInventory[base + ResourceType.APPLE] -= nUnits + hp * hp;
-            s.shackInventory[base + ResourceType.IRON]  -= nUnits + cp * cp;
-            // spawn troll at shack
-            int newIdx = s.trollCount++;
-            s.trollPlayer[newIdx] = (byte) player;
-            s.trollId[newIdx]     = (byte) (maxTrollId(s) + 1);
-            s.trollX[newIdx] = (byte) (player == 0 ? GameState.shackMeX : GameState.shackOppX);
-            s.trollY[newIdx] = (byte) (player == 0 ? GameState.shackMeY : GameState.shackOppY);
-            s.trollMS[newIdx] = (byte) ms;
-            s.trollCC[newIdx] = (byte) cc;
-            s.trollHP[newIdx] = (byte) hp;
-            s.trollCP[newIdx] = (byte) cp;
-            int invBase = newIdx * ResourceType.COUNT;
-            for (int r = 0; r < ResourceType.COUNT; r++) s.trollInventory[invBase + r] = 0;
+            s.shackInventory[base + ResourceType.PLUM]  -= chosenN + ms * ms;
+            s.shackInventory[base + ResourceType.LEMON] -= chosenN + cc * cc;
+            s.shackInventory[base + ResourceType.APPLE] -= chosenN + hp * hp;
+            s.shackInventory[base + ResourceType.IRON]  -= chosenN + cp * cp;
+            int spawnX = (player == 0) ? GameState.shackMeX : GameState.shackOppX;
+            int spawnY = (player == 0) ? GameState.shackMeY : GameState.shackOppY;
+            s.addTroll(player, spawnX, spawnY, ms, cc, hp, cp);
         }
     }
 
-    private static boolean canAffordTrain(GameState s, int player, int ms, int cc, int hp, int cp) {
+    private static boolean canAffordTrainWithCount(GameState s, int player, int ms, int cc, int hp, int cp, int n) {
         int base = player * ResourceType.COUNT;
-        int n = countOwnTrolls(s, player);
         return s.shackInventory[base + ResourceType.PLUM]  >= n + ms * ms
             && s.shackInventory[base + ResourceType.LEMON] >= n + cc * cc
             && s.shackInventory[base + ResourceType.APPLE] >= n + hp * hp
             && s.shackInventory[base + ResourceType.IRON]  >= n + cp * cp;
     }
 
-    private static boolean shackOccupied(GameState s, int player) {
-        int sx = (player == 0) ? GameState.shackMeX  : GameState.shackOppX;
-        int sy = (player == 0) ? GameState.shackMeY  : GameState.shackOppY;
-        for (int i = 0; i < s.trollCount; i++) {
-            if ((s.trollX[i] & 0xFF) == sx && (s.trollY[i] & 0xFF) == sy) return true;
-        }
-        return false;
-    }
-
     private static int countOwnTrolls(GameState s, int player) {
         int c = 0;
         for (int i = 0; i < s.trollCount; i++) if ((s.trollPlayer[i] & 0xFF) == player) c++;
         return c;
-    }
-
-    private static int maxTrollId(GameState s) {
-        int m = -1;
-        for (int i = 0; i < s.trollCount; i++) {
-            int v = s.trollId[i] & 0xFF;
-            if (v > m) m = v;
-        }
-        return m;
     }
 
     static void applyDrops(GameState s, int[] actions, int n) {
