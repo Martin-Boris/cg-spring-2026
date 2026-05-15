@@ -99,4 +99,23 @@ class GenomeOpsWarmStartTest {
         assertThat(Genome.geneX(g0)).isEqualTo(1);
         assertThat(Genome.geneY(g0)).isEqualTo(2);
     }
+
+    @Test void chainsFromLastAssignedTree() {
+        // troll (0,0) ; arbres en (5,5), (1,0), (2,0).
+        // Attendu : depuis (0,0) → (1,0) d=1 ; depuis (1,0) → (2,0) d=1 ; depuis (2,0) → (5,5) d=6
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {5, 5, 5}, {1, 0, 5}, {2, 0, 5} }
+        );
+        short[] buf = newBuf();
+        byte[]  len = newLen();
+        GenomeOps.initWarm(s, buf, len, 0);
+        assertThat(Genome.len(len, 0, 0)).isEqualTo(3);
+        short g0 = (short) Genome.gene(buf, 0, 0, 0);
+        short g1 = (short) Genome.gene(buf, 0, 0, 1);
+        short g2 = (short) Genome.gene(buf, 0, 0, 2);
+        assertThat(Genome.geneX(g0)).isEqualTo(1); assertThat(Genome.geneY(g0)).isEqualTo(0);
+        assertThat(Genome.geneX(g1)).isEqualTo(2); assertThat(Genome.geneY(g1)).isEqualTo(0);
+        assertThat(Genome.geneX(g2)).isEqualTo(5); assertThat(Genome.geneY(g2)).isEqualTo(5);
+    }
 }
