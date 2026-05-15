@@ -585,19 +585,7 @@ public final class Simulator {
         int base = TreeType.COOLDOWN_NORMAL[treeType] & 0xFF;
         int x = s.treeX[treeIdx] & 0xFF;
         int y = s.treeY[treeIdx] & 0xFF;
-        if (nearWater(x, y)) base -= WATER_BOOST[treeType] & 0xFF;
+        if (PathTable.isNearWater[y * GameState.width + x]) base -= WATER_BOOST[treeType] & 0xFF;
         return (byte) base;
-    }
-
-    private static boolean nearWater(int x, int y) {
-        return tileEquals(x + 1, y, TileType.WATER)
-            || tileEquals(x - 1, y, TileType.WATER)
-            || tileEquals(x, y + 1, TileType.WATER)
-            || tileEquals(x, y - 1, TileType.WATER);
-    }
-
-    private static boolean tileEquals(int x, int y, byte type) {
-        if (x < 0 || x >= GameState.width || y < 0 || y >= GameState.height) return false;
-        return GameState.tiles[y * GameState.width + x] == type;
     }
 }

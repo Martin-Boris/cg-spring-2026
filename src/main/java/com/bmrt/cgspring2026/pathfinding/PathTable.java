@@ -68,6 +68,8 @@ public final class PathTable {
         return cellIdAt[y * GameState.width + x] & 0xFF;
     }
 
+    public static boolean[] isNearWater;  // [W*H] true si une case orthogonale est de l'eau
+
     public static byte[][]   dist;    // [N][N] distance, UNREACHABLE si non connecté
     public static byte[][][] paths;   // [N][N] -> chemin partagé symétriquement
 
@@ -92,6 +94,18 @@ public final class PathTable {
                 byte d = (byte) (p.length - 1);
                 dist[src][dst] = d;
                 dist[dst][src] = d;
+            }
+        }
+        int W = GameState.width;
+        int H = GameState.height;
+        isNearWater = new boolean[W * H];
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                boolean near = (x + 1 < W && GameState.tiles[y * W + (x + 1)] == TileType.WATER)
+                            || (x - 1 >= 0 && GameState.tiles[y * W + (x - 1)] == TileType.WATER)
+                            || (y + 1 < H && GameState.tiles[(y + 1) * W + x] == TileType.WATER)
+                            || (y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.WATER);
+                isNearWater[y * W + x] = near;
             }
         }
     }

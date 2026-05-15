@@ -2,6 +2,7 @@ package com.bmrt.cgspring2026.simulation;
 
 import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.model.TileType;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,7 @@ class SimulatorPlantTickTest {
                 if (t == TileType.SHACK_OPP) { GameState.shackOppX = x; GameState.shackOppY = y; }
             }
         }
+        PathTable.init();
     }
 
     @Test void tickIncrementsTurnCounter() {
@@ -94,6 +96,7 @@ class SimulatorPlantTickTest {
     @Test void plantTickUsesWaterBoostCooldown() {
         // place water at (5,6) so tree at (5,5) is near water
         GameState.tiles[6 * GameState.width + 5] = TileType.WATER;
+        PathTable.init(); // recompute isNearWater after tile change
         GameState s = new GameState();
         s.treeCount = 1;
         s.treeType[0]     = com.bmrt.cgspring2026.model.TreeType.APPLE;
