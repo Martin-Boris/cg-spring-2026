@@ -56,7 +56,20 @@
       "Skill(superpowers:systematic-debugging)",
       "Skill(superpowers:test-driven-development)",
       "Bash(mvn -q -pl . test -Dtest='PathTableTest,GreedyAgentDecideTest')",
-      "Bash(mvn -q test -Dtest='PathTableTest,GreedyAgentDecideTest')"
+      "Bash(mvn -q test -Dtest='PathTableTest,GreedyAgentDecideTest')",
+      "Skill(superpowers:writing-plans)",
+      "Bash(mvn -q -DskipTests test-compile)",
+      "Skill(superpowers:using-superpowers)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\boris\\\\Documents\\\\dev\\\\cg-spring-2026\\\\src\" -Recurse -Directory | ForEach-Object { $_.FullName })",
+      "PowerShell(New-Item *)",
+      "Bash(mvn -q -Dtest=SimulatorPickTest test)",
+      "Bash(mvn -q -Dtest=SimulatorHarvestTest test)",
+      "Bash(mvn -q -Dtest=\"SimulatorPlantTickTest,SimulatorDropTest,SimulatorMineTest,SimulatorPickTest\" test)",
+      "Bash(mvn -q -Dtest=SimulatorPlantTest test)",
+      "Bash(mvn -q -Dtest=SimulatorChopTest test)",
+      "Bash(mvn -q -Dtest=SimulatorTrainTest test)",
+      "Bash(mvn -q -Dtest=SimulatorMoveTest test)",
+      "Bash(mvn -Dtest=SimulatorMoveTest test)"
     ]
   }
 }
