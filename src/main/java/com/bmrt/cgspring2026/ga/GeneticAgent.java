@@ -13,12 +13,15 @@ public final class GeneticAgent {
 
     private final GameState scratch = new GameState();
     final Population pop = new Population();
+    final short[] prevBestBuf  = new short[Genome.SLOTS_PER_GENOME];
+    final byte[]  prevBestLen  = new byte[GameState.MAX_TROLLS];
+    boolean       hasPrevBest  = false;
     private final SplittableRandom rng = new SplittableRandom();
     private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
 
     private int lastGenCount;
     private double lastBestFitness;
-    private int lastBestIdx;
+    int lastBestIdx;
 
     public GeneticAgent() {
     }
@@ -59,6 +62,13 @@ public final class GeneticAgent {
         // 3. Best individu courant
         lastBestIdx = argmax(pop.curFit);
         lastBestFitness = pop.curFit[lastBestIdx];
+
+        // Stash du best pour réinjection au tour suivant
+        System.arraycopy(pop.cur, Genome.offset(lastBestIdx, 0),
+                         prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
+        System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
+                         prevBestLen, 0, GameState.MAX_TROLLS);
+        hasPrevBest = true;
 
         // 4. Génère les actions du tick 0
         int[] cursor = TrollPolicy.cursorBuf;
