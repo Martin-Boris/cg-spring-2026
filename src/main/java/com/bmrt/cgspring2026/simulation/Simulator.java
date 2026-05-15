@@ -10,6 +10,9 @@ import com.bmrt.cgspring2026.pathfinding.PathTable;
 
 public final class Simulator {
 
+    /** Si vrai, des assertions sont exécutées après chaque tick (tests uniquement, désactivé en prod). */
+    public static boolean DEBUG_INVARIANTS = false;
+
     private static final byte[] WATER_BOOST = { 5, 5, 7, 2 };
 
     private static final boolean[] harvestTreeProcessed = new boolean[GameState.MAX_TREES];
