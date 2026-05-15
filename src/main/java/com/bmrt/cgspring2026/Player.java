@@ -16,18 +16,18 @@ public class Player {
         PathTable.init();
         ShackAdjacency.init();
 
-        GameState state    = new GameState();
+        GameState state = new GameState();
         GeneticAgent agent = new GeneticAgent();
-        int[] actionBuf    = new int[GameState.MAX_TROLLS + 1];
-        StringBuilder sb   = new StringBuilder();
+        int[] actionBuf = new int[GameState.MAX_TROLLS + 1];
+        StringBuilder sb = new StringBuilder();
 
         boolean firstTurn = true;
         while (true) {
-            long start = System.nanoTime();
             state.readTurn(in);
+            long start = System.nanoTime();
 
             long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
-                                               : GeneticAgent.TURN_BUDGET_NS);
+                    : GeneticAgent.TURN_BUDGET_NS);
             int n = agent.decide(state, deadline, actionBuf);
             firstTurn = false;
 
@@ -37,8 +37,8 @@ public class Player {
                 sb.append(Action.toCommand(actionBuf[i], state));
             }
             sb.append(";MSG GA gen=").append(agent.lastGenCount())
-              .append(" fit=").append((int) agent.lastBestFitness())
-              .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
+                    .append(" fit=").append((int) agent.lastBestFitness())
+                    .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
             System.out.println(sb);
 
             state.turn++;
