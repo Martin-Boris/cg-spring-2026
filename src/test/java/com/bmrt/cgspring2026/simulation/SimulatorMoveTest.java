@@ -129,6 +129,27 @@ class SimulatorMoveTest {
         assertThat(s.trollY[t2] & 0xFF).isEqualTo(3);
     }
 
+    @Test void threeTrollCycleResolves() {
+        GameState s = new GameState();
+        // 3 trolls: a wants b's cell, b wants c's cell, c wants a's cell.
+        // b needs ms=2 because (3,2)→(2,3) is Manhattan distance 2 (grids are bipartite, no unit-move 3-cycles).
+        int a = placeTroll(s, 0, 2, 2, 1);
+        int b = placeTroll(s, 0, 3, 2, 2);
+        int c = placeTroll(s, 0, 2, 3, 1);
+        int[] acts = {
+            Action.move(a, 3, 2),
+            Action.move(b, 2, 3),
+            Action.move(c, 2, 2),
+        };
+        Simulator.tick(s, acts, 3);
+        assertThat(s.trollX[a] & 0xFF).isEqualTo(3);
+        assertThat(s.trollY[a] & 0xFF).isEqualTo(2);
+        assertThat(s.trollX[b] & 0xFF).isEqualTo(2);
+        assertThat(s.trollY[b] & 0xFF).isEqualTo(3);
+        assertThat(s.trollX[c] & 0xFF).isEqualTo(2);
+        assertThat(s.trollY[c] & 0xFF).isEqualTo(2);
+    }
+
     @Test void stationaryTrollBlocksTeamMate() {
         GameState s = new GameState();
         int t1 = placeTroll(s, 0, 3, 3, 5);
@@ -138,5 +159,18 @@ class SimulatorMoveTest {
         Simulator.tick(s, acts, 1);
         assertThat(s.trollX[t1] & 0xFF).isEqualTo(3);
         assertThat(s.trollX[t2] & 0xFF).isEqualTo(2);
+    }
+
+    @Test void twoPlayersMoveSimultaneously() {
+        GameState s = new GameState();
+        int p0 = placeTroll(s, 0, 1, 1, 1);
+        int p1 = placeTroll(s, 1, 6, 4, 1);
+        int[] acts = {
+            Action.move(p0, 2, 1),
+            Action.move(p1, 5, 4),
+        };
+        Simulator.tick(s, acts, 2);
+        assertThat(s.trollX[p0] & 0xFF).isEqualTo(2);
+        assertThat(s.trollX[p1] & 0xFF).isEqualTo(5);
     }
 }

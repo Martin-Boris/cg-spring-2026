@@ -43,6 +43,9 @@ public final class GameState {
 
     public final byte[] trollInventory = new byte[MAX_TROLLS * ResourceType.COUNT];
 
+    /** Sum of trollInventory[i*COUNT..i*COUNT+COUNT-1] for each troll i. */
+    public final int[] trollCarryTotal = new int[MAX_TROLLS];
+
     /** Cell -> troll index, -1 if none. byte suffices because MAX_TROLLS = 32. Size W*H. */
     public byte[] trollCellIndex;
 
@@ -104,6 +107,10 @@ public final class GameState {
         for (int i = 0; i < trollCount; i++) {
             int id = trollId[i] & 0xFF;
             if (id >= nextTrollId) nextTrollId = id + 1;
+            int base = i * ResourceType.COUNT;
+            int tot = 0;
+            for (int r = 0; r < ResourceType.COUNT; r++) tot += trollInventory[base + r] & 0xFF;
+            trollCarryTotal[i] = tot;
         }
     }
 
@@ -138,7 +145,8 @@ public final class GameState {
         System.arraycopy(src.trollCC,        0, trollCC,        0, MAX_TROLLS);
         System.arraycopy(src.trollHP,        0, trollHP,        0, MAX_TROLLS);
         System.arraycopy(src.trollCP,        0, trollCP,        0, MAX_TROLLS);
-        System.arraycopy(src.trollInventory, 0, trollInventory, 0, MAX_TROLLS * ResourceType.COUNT);
+        System.arraycopy(src.trollInventory,  0, trollInventory,  0, MAX_TROLLS * ResourceType.COUNT);
+        System.arraycopy(src.trollCarryTotal, 0, trollCarryTotal, 0, MAX_TROLLS);
         nextTrollId = src.nextTrollId;
         if (trollCellIndex == null || trollCellIndex.length < width * height) {
             trollCellIndex = new byte[width * height];
@@ -200,8 +208,20 @@ public final class GameState {
         trollCP[idx]     = (byte) cp;
         int invBase = idx * ResourceType.COUNT;
         for (int r = 0; r < ResourceType.COUNT; r++) trollInventory[invBase + r] = 0;
+        trollCarryTotal[idx] = 0;
         trollCellIndex[y * width + x] = (byte) idx;
         return idx;
+    }
+
+    public void addToInventory(int idx, int resource, int delta) {
+        trollInventory[idx * ResourceType.COUNT + resource] += (byte) delta;
+        trollCarryTotal[idx] += delta;
+    }
+
+    public void clearInventory(int idx) {
+        int base = idx * ResourceType.COUNT;
+        for (int r = 0; r < ResourceType.COUNT; r++) trollInventory[base + r] = 0;
+        trollCarryTotal[idx] = 0;
     }
 
     /** Moves troll idx to (x,y). Maintains trollCellIndex. */

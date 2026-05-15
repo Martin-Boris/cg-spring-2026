@@ -26,6 +26,7 @@ public final class Simulator {
     private Simulator() {}
 
     public static void tick(GameState s, int[] actions, int n) {
+        syncCarryTotals(s);
         applyMoves(s, actions, n);
         applyHarvests(s, actions, n);
         applyPlants(s, actions, n);
@@ -38,6 +39,15 @@ public final class Simulator {
         s.compactDeadTrees();
         s.turn++;
         if (DEBUG_INVARIANTS) checkInvariants(s);
+    }
+
+    private static void syncCarryTotals(GameState s) {
+        for (int i = 0; i < s.trollCount; i++) {
+            int base = i * ResourceType.COUNT;
+            int tot = 0;
+            for (int r = 0; r < ResourceType.COUNT; r++) tot += s.trollInventory[base + r] & 0xFF;
+            s.trollCarryTotal[i] = tot;
+        }
     }
 
     static void checkInvariants(GameState s) {
@@ -60,6 +70,15 @@ public final class Simulator {
                 }
             }
         }
+        for (int i = 0; i < s.trollCount; i++) {
+            int base = i * ResourceType.COUNT;
+            int sum = 0;
+            for (int r = 0; r < ResourceType.COUNT; r++) sum += s.trollInventory[base + r] & 0xFF;
+            if (s.trollCarryTotal[i] != sum) {
+                throw new IllegalStateException("trollCarryTotal inconsistent at troll " + i
+                    + " (expected " + sum + ", got " + s.trollCarryTotal[i] + ")");
+            }
+        }
     }
 
     // Scratch: per-troll requested target (or -1 = no move / stationary)
@@ -70,6 +89,8 @@ public final class Simulator {
     // Per-player resolver scratch
     private static final int[] resolverIdx = new int[GameState.MAX_TROLLS];
     private static final boolean[] resolverDone = new boolean[GameState.MAX_TROLLS];
+    private static final int[] freqDirty = new int[GameState.MAX_TROLLS];
+    private static final int[] occupiedDirty = new int[GameState.MAX_TROLLS];
 
     static void applyMoves(GameState s, int[] actions, int n) {
         // Reset & compute pre-resolved targets
@@ -131,25 +152,29 @@ public final class Simulator {
                                             && moveTargetY[i] == (s.trollY[i] & 0xFF));
             count++;
         }
-        // Mark occupied[] = current positions of all player's trolls (including stationary)
+        // Mark occupied[] = current positions of all player's trolls (T6: partial init, no full reset)
         int W = GameState.width;
         boolean[] occupied = ensureOccupiedBuffer(W * GameState.height);
-        for (int i = 0; i < occupied.length; i++) occupied[i] = false;
+        int occDirty = 0;
         for (int k = 0; k < count; k++) {
             int idx = resolverIdx[k];
-            occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = true;
+            int cell = (s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF);
+            occupied[cell] = true;
+            occupiedDirty[occDirty++] = cell;
         }
         boolean progressed = true;
         boolean allowBlocked = false;
         int[] freq = ensureFreqBuffer(W * GameState.height);
         while (progressed) {
             progressed = false;
-            // recompute target frequency among undone trolls
-            for (int i = 0; i < freq.length; i++) freq[i] = 0;
+            // T5: partial freq reset — only track/reset touched cells
+            int dirty = 0;
             for (int k = 0; k < count; k++) {
                 int idx = resolverIdx[k];
                 if (resolverDone[idx]) continue;
-                freq[moveTargetY[idx] * W + moveTargetX[idx]]++;
+                int cell = moveTargetY[idx] * W + moveTargetX[idx];
+                if (freq[cell] == 0) freqDirty[dirty++] = cell;
+                freq[cell]++;
             }
             // single-target moves into free cells
             for (int k = 0; k < count; k++) {
@@ -165,62 +190,65 @@ public final class Simulator {
                     allowBlocked = false;
                 }
             }
-            if (progressed) continue;
-            // cycle detection
-            for (int startK = 0; startK < count && !progressed; startK++) {
-                int startIdx = resolverIdx[startK];
-                if (resolverDone[startIdx]) continue;
-                int cur = startIdx;
-                int hops = 0;
-                int found = -1;
-                while (hops <= count) {
-                    int destCell = moveTargetY[cur] * W + moveTargetX[cur];
-                    // find a troll whose CURRENT cell == destCell, undone, same player
-                    int next = -1;
-                    for (int k = 0; k < count; k++) {
-                        int j = resolverIdx[k];
-                        if (resolverDone[j]) continue;
-                        if ((s.trollY[j] & 0xFF) * W + (s.trollX[j] & 0xFF) == destCell) { next = j; break; }
+            if (!progressed) {
+                // cycle detection — O(1) lookup via trollCellIndex
+                for (int startK = 0; startK < count && !progressed; startK++) {
+                    int startIdx = resolverIdx[startK];
+                    if (resolverDone[startIdx]) continue;
+                    int cur = startIdx;
+                    int hops = 0;
+                    int found = -1;
+                    while (hops <= count) {
+                        int next = s.trollIndexAtCell(moveTargetX[cur], moveTargetY[cur]);
+                        if (next < 0 || resolverDone[next] || (s.trollPlayer[next] & 0xFF) != player) break;
+                        if (next == startIdx) { found = hops; break; }
+                        cur = next; hops++;
                     }
-                    if (next < 0) break;
-                    if (next == startIdx) { found = hops; break; }
-                    cur = next; hops++;
-                }
-                if (found >= 0) {
-                    // execute the cycle
-                    int cur2 = startIdx;
-                    int[] cycle = cycleBuf;
-                    int len = 0;
-                    cycle[len++] = cur2;
-                    for (int h = 0; h <= found; h++) {
-                        int destCell = moveTargetY[cur2] * W + moveTargetX[cur2];
-                        int next = -1;
-                        for (int k = 0; k < count; k++) {
-                            int j = resolverIdx[k];
-                            if (resolverDone[j]) continue;
-                            if ((s.trollY[j] & 0xFF) * W + (s.trollX[j] & 0xFF) == destCell) { next = j; break; }
+                    if (found >= 0) {
+                        // build cycle list
+                        int cur2 = startIdx;
+                        int[] cycle = cycleBuf;
+                        int len = 0;
+                        cycle[len++] = cur2;
+                        for (int h = 0; h <= found; h++) {
+                            int next = s.trollIndexAtCell(moveTargetX[cur2], moveTargetY[cur2]);
+                            if (next < 0 || next == startIdx) break;
+                            cycle[len++] = next;
+                            cur2 = next;
                         }
-                        if (next < 0 || next == startIdx) break;
-                        cycle[len++] = next;
-                        cur2 = next;
+                        // Clear old positions before moving (cycle cells overlap)
+                        for (int c = 0; c < len; c++) {
+                            int idx = cycle[c];
+                            occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = false;
+                            if (s.trollCellIndex != null)
+                                s.trollCellIndex[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = -1;
+                        }
+                        // Apply moves and register new positions
+                        for (int c = 0; c < len; c++) {
+                            int idx = cycle[c];
+                            s.trollX[idx] = (byte) moveTargetX[idx];
+                            s.trollY[idx] = (byte) moveTargetY[idx];
+                            occupied[moveTargetY[idx] * W + moveTargetX[idx]] = true;
+                            if (s.trollCellIndex != null)
+                                s.trollCellIndex[moveTargetY[idx] * W + moveTargetX[idx]] = (byte) idx;
+                            resolverDone[idx] = true;
+                        }
+                        progressed = true;
                     }
-                    for (int c = 0; c < len; c++) {
-                        int idx = cycle[c];
-                        occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = false;
-                    }
-                    for (int c = 0; c < len; c++) {
-                        int idx = cycle[c];
-                        s.moveTroll(idx, moveTargetX[idx], moveTargetY[idx]);
-                        occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = true;
-                        resolverDone[idx] = true;
-                    }
-                    progressed = true;
                 }
             }
+            // T5: cleanup freq[] for touched cells only
+            for (int d = 0; d < dirty; d++) freq[freqDirty[d]] = 0;
             if (!progressed && !allowBlocked) {
                 allowBlocked = true;
                 progressed = true; // re-enter loop with relaxed rule
             }
+        }
+        // T6: cleanup occupied[] — initial positions + final positions of all player trolls
+        for (int d = 0; d < occDirty; d++) occupied[occupiedDirty[d]] = false;
+        for (int k = 0; k < count; k++) {
+            int idx = resolverIdx[k];
+            occupied[(s.trollY[idx] & 0xFF) * W + (s.trollX[idx] & 0xFF)] = false;
         }
     }
 
@@ -266,12 +294,9 @@ public final class Simulator {
                     int trollIdx = harvestSharedTrolls[k];
                     int hp = s.trollHP[trollIdx] & 0xFF;
                     if (power > hp) continue;
-                    int invBase = trollIdx * ResourceType.COUNT;
                     int cc = s.trollCC[trollIdx] & 0xFF;
-                    int total = 0;
-                    for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
-                    if (total >= cc) continue;
-                    s.trollInventory[invBase + type]++;
+                    if (s.trollCarryTotal[trollIdx] >= cc) continue;
+                    s.addToInventory(trollIdx, type, 1);
                     if (s.treeFruits[treeIdx] > 0) s.treeFruits[treeIdx]--;
                 }
             }
@@ -320,12 +345,9 @@ public final class Simulator {
             for (int round = 0; round < size && remaining > 0; round++) {
                 for (int k = 0; k < shared; k++) {
                     int trollIdx = harvestSharedTrolls[k];
-                    int invBase = trollIdx * ResourceType.COUNT;
                     int cc = s.trollCC[trollIdx] & 0xFF;
-                    int total = 0;
-                    for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
-                    if (total >= cc) continue;
-                    s.trollInventory[invBase + ResourceType.WOOD]++;
+                    if (s.trollCarryTotal[trollIdx] >= cc) continue;
+                    s.addToInventory(trollIdx, ResourceType.WOOD, 1);
                     remaining--;
                 }
             }
@@ -342,14 +364,11 @@ public final class Simulator {
             if (type < 0 || type >= ResourceType.COUNT) continue;
             if (!trollNearOwnShack(s, idx)) continue;
             int cc = s.trollCC[idx] & 0xFF;
-            int invBase = idx * ResourceType.COUNT;
-            int total = 0;
-            for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
-            if (total >= cc) continue;
+            if (s.trollCarryTotal[idx] >= cc) continue;
             int shackBase = (s.trollPlayer[idx] & 0xFF) * ResourceType.COUNT;
             if (s.shackInventory[shackBase + type] <= 0) continue;
             s.shackInventory[shackBase + type]--;
-            s.trollInventory[invBase + type]++;
+            s.addToInventory(idx, type, 1);
         }
     }
 
@@ -394,7 +413,7 @@ public final class Simulator {
             for (int k = 0; k < sharedCount; k++) {
                 int jdx = sharedIdx[k];
                 int jtype = sharedType[k];
-                s.trollInventory[jdx * ResourceType.COUNT + jtype]--;
+                s.addToInventory(jdx, jtype, -1);
             }
         }
     }
@@ -463,15 +482,13 @@ public final class Simulator {
             int idx = Action.trollIdx(a);
             if (idx >= s.trollCount) continue;
             if (!trollNearOwnShack(s, idx)) continue;
-            int invBase = idx * ResourceType.COUNT;
-            int total = 0;
-            for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
-            if (total == 0) continue;
+            if (s.trollCarryTotal[idx] == 0) continue;
             int shackBase = (s.trollPlayer[idx] & 0xFF) * ResourceType.COUNT;
+            int invBase = idx * ResourceType.COUNT;
             for (int r = 0; r < ResourceType.COUNT; r++) {
                 s.shackInventory[shackBase + r] += s.trollInventory[invBase + r] & 0xFF;
-                s.trollInventory[invBase + r] = 0;
             }
+            s.clearInventory(idx);
         }
     }
 
@@ -495,13 +512,10 @@ public final class Simulator {
             if (cp == 0) continue;
             if (!adjacentToIron(s, idx)) continue;
             int cc = s.trollCC[idx] & 0xFF;
-            int invBase = idx * ResourceType.COUNT;
-            int total = 0;
-            for (int r = 0; r < ResourceType.COUNT; r++) total += s.trollInventory[invBase + r] & 0xFF;
-            int free = cc - total;
+            int free = cc - s.trollCarryTotal[idx];
             int gain = Math.min(cp, free);
             if (gain <= 0) continue;
-            s.trollInventory[invBase + ResourceType.IRON] += gain;
+            s.addToInventory(idx, ResourceType.IRON, gain);
         }
     }
 
