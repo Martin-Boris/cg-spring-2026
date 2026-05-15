@@ -106,4 +106,34 @@ class GeneticAgentTest {
         assertThat(agent.lastGenCount()).isGreaterThanOrEqualTo(1);
         assertThat(agent.lastBestFitness()).isNotNaN();
     }
+
+    @Test void geneticAgentMatchesOrBeatsGreedyOnSimpleScenario() {
+        // Setup : 1 troll me, 2 arbres ; le GA doit obtenir une fitness ≥ greedy
+        GameState src = seededState();
+
+        // Greedy reference : applique greedy sur 25 tours
+        com.bmrt.cgspring2026.model.GameState greedyScratch = new com.bmrt.cgspring2026.model.GameState();
+        greedyScratch.copyFrom(src);
+        int[] gOut = new int[GameState.MAX_TROLLS + 1];
+        for (int t = 0; t < GenomeEvaluator.HORIZON; t++) {
+            int n = com.bmrt.cgspring2026.greedy.GreedyAgent.decide(greedyScratch, gOut);
+            com.bmrt.cgspring2026.simulation.Simulator.tick(greedyScratch, gOut, n);
+        }
+        int greedyScore = greedyScratch.score(0);
+
+        // GA : tourne 200ms et applique le best tick après tick
+        GeneticAgent agent = new GeneticAgent();
+        GameState gaScratch = new GameState();
+        gaScratch.copyFrom(src);
+        int[] gaOut = new int[GameState.MAX_TROLLS + 1];
+        for (int t = 0; t < GenomeEvaluator.HORIZON; t++) {
+            long deadline = System.nanoTime() + 50_000_000L;
+            int n = agent.decide(gaScratch, deadline, gaOut);
+            com.bmrt.cgspring2026.simulation.Simulator.tick(gaScratch, gaOut, n);
+        }
+        int gaScore = gaScratch.score(0);
+
+        // GA ≥ greedy (peut être égal sur scenarios triviaux)
+        assertThat(gaScore).isGreaterThanOrEqualTo(greedyScore);
+    }
 }
