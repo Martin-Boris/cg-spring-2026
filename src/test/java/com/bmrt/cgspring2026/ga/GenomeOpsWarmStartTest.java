@@ -118,4 +118,25 @@ class GenomeOpsWarmStartTest {
         assertThat(Genome.geneX(g1)).isEqualTo(2); assertThat(Genome.geneY(g1)).isEqualTo(0);
         assertThat(Genome.geneX(g2)).isEqualTo(5); assertThat(Genome.geneY(g2)).isEqualTo(5);
     }
+
+    @Test void roundRobinDistributesBetweenTrolls() {
+        // Troll0 (0,0), Troll1 (5,5).
+        // Arbres : (1,0) près du T0 ; (5,4) près du T1 ; (0,1) près du T0 ; (4,5) près du T1.
+        // Attendu : chaque troll récupère ses arbres voisins (couche 0 : (1,0) et (5,4)).
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0}, {0, 5, 5} },
+            new int[][]{ {1, 0, 5}, {5, 4, 5}, {0, 1, 5}, {4, 5, 5} }
+        );
+        short[] buf = newBuf();
+        byte[]  len = newLen();
+        GenomeOps.initWarm(s, buf, len, 0);
+        // T0 prend (1,0) au k=0
+        short t0k0 = (short) Genome.gene(buf, 0, 0, 0);
+        assertThat(Genome.geneX(t0k0)).isEqualTo(1);
+        assertThat(Genome.geneY(t0k0)).isEqualTo(0);
+        // T1 prend (5,4) au k=0
+        short t1k0 = (short) Genome.gene(buf, 0, 1, 0);
+        assertThat(Genome.geneX(t1k0)).isEqualTo(5);
+        assertThat(Genome.geneY(t1k0)).isEqualTo(4);
+    }
 }
