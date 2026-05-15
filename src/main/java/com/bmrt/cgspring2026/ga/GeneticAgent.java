@@ -7,20 +7,41 @@ import java.util.SplittableRandom;
 
 public final class GeneticAgent {
 
-    public static final long   TURN_BUDGET_NS = 40_000_000L;
-    public static final long   INIT_BUDGET_NS = 900_000_000L;
-    public static final double P_CROSSOVER    = 0.70;
+    public static final long TURN_BUDGET_NS = 45_000_000L;
+    public static final long INIT_BUDGET_NS = 900_000_000L;
+    public static final double P_CROSSOVER = 0.70;
 
     private final GameState scratch = new GameState();
-    private final Population pop    = new Population();
+    private final Population pop = new Population();
     private final SplittableRandom rng = new SplittableRandom();
     private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
 
-    private int    lastGenCount;
+    private int lastGenCount;
     private double lastBestFitness;
-    private int    lastBestIdx;
+    private int lastBestIdx;
 
-    public GeneticAgent() {}
+    public GeneticAgent() {
+    }
+
+    private static void copyIndividu(short[] srcBuf, byte[] srcLen, int srcIdx,
+                                     short[] dstBuf, byte[] dstLen, int dstIdx) {
+        System.arraycopy(srcBuf, Genome.offset(srcIdx, 0),
+                dstBuf, Genome.offset(dstIdx, 0), Genome.SLOTS_PER_GENOME);
+        System.arraycopy(srcLen, Genome.lenOffset(srcIdx, 0),
+                dstLen, Genome.lenOffset(dstIdx, 0), GameState.MAX_TROLLS);
+    }
+
+    private static int argmax(double[] arr) {
+        int best = 0;
+        double bestV = arr[0];
+        for (int i = 1; i < arr.length; i++) {
+            if (arr[i] > bestV) {
+                bestV = arr[i];
+                best = i;
+            }
+        }
+        return best;
+    }
 
     public int decide(GameState state, long deadlineNs, int[] outActions) {
         // 1. Init population
@@ -56,8 +77,13 @@ public final class GeneticAgent {
         return n;
     }
 
-    public int    lastGenCount()    { return lastGenCount; }
-    public double lastBestFitness() { return lastBestFitness; }
+    public int lastGenCount() {
+        return lastGenCount;
+    }
+
+    public double lastBestFitness() {
+        return lastBestFitness;
+    }
 
     private void initPopulation(GameState state) {
         for (int i = 0; i < Genome.POP_SIZE; i++) {
@@ -83,7 +109,7 @@ public final class GeneticAgent {
                 int p1 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
                 int p2 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
                 GenomeOps.crossover(pop.cur, pop.curLen, p1, pop.cur, pop.curLen, p2,
-                                    pop.nxt, pop.nxtLen, i, rng);
+                        pop.nxt, pop.nxtLen, i, rng);
             } else {
                 int p = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
                 copyIndividu(pop.cur, pop.curLen, p, pop.nxt, pop.nxtLen, i);
@@ -92,22 +118,5 @@ public final class GeneticAgent {
             pop.nxtFit[i] = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
         }
         pop.swap();
-    }
-
-    private static void copyIndividu(short[] srcBuf, byte[] srcLen, int srcIdx,
-                                     short[] dstBuf, byte[] dstLen, int dstIdx) {
-        System.arraycopy(srcBuf, Genome.offset(srcIdx, 0),
-                         dstBuf, Genome.offset(dstIdx, 0), Genome.SLOTS_PER_GENOME);
-        System.arraycopy(srcLen, Genome.lenOffset(srcIdx, 0),
-                         dstLen, Genome.lenOffset(dstIdx, 0), GameState.MAX_TROLLS);
-    }
-
-    private static int argmax(double[] arr) {
-        int best = 0;
-        double bestV = arr[0];
-        for (int i = 1; i < arr.length; i++) {
-            if (arr[i] > bestV) { bestV = arr[i]; best = i; }
-        }
-        return best;
     }
 }

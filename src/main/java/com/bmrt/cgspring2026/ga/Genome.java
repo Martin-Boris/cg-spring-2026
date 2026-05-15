@@ -4,19 +4,25 @@ import com.bmrt.cgspring2026.model.GameState;
 
 public final class Genome {
 
-    public static final int POP_SIZE              = 48;
-    public static final int MAX_TARGETS_PER_TROLL = 16;
-    public static final int SLOTS_PER_GENOME      = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
-    public static final short EMPTY_GENE          = -1;
+    public static final int POP_SIZE = 20;
+    public static final int MAX_TARGETS_PER_TROLL = 10;
+    public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
+    public static final short EMPTY_GENE = -1;
 
-    private Genome() {}
+    private Genome() {
+    }
 
     public static short encode(int x, int y) {
         return (short) (((x & 0xFF) << 8) | (y & 0xFF));
     }
 
-    public static int geneX(short g) { return (g >>> 8) & 0xFF; }
-    public static int geneY(short g) { return g & 0xFF; }
+    public static int geneX(short g) {
+        return (g >>> 8) & 0xFF;
+    }
+
+    public static int geneY(short g) {
+        return g & 0xFF;
+    }
 
     public static int offset(int individuIdx, int trollIdx) {
         return individuIdx * SLOTS_PER_GENOME + trollIdx * MAX_TARGETS_PER_TROLL;
