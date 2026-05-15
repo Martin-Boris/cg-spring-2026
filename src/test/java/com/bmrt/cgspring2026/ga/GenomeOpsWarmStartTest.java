@@ -84,4 +84,19 @@ class GenomeOpsWarmStartTest {
         GenomeOps.initWarm(s, buf, len, 0);
         assertThat(Genome.len(len, 0, 0)).isEqualTo(0);
     }
+
+    @Test void assignsClosestTreeFirst() {
+        // troll en (1,1), arbres en (1,2) [d=1] et (5,5) [d=8]
+        GameState s = stateWith(
+            new int[][]{ {0, 1, 1} },
+            new int[][]{ {5, 5, 5}, {1, 2, 5} }   // ordre exprès non trié
+        );
+        short[] buf = newBuf();
+        byte[]  len = newLen();
+        GenomeOps.initWarm(s, buf, len, 0);
+        assertThat(Genome.len(len, 0, 0)).isGreaterThanOrEqualTo(1);
+        short g0 = (short) Genome.gene(buf, 0, 0, 0);
+        assertThat(Genome.geneX(g0)).isEqualTo(1);
+        assertThat(Genome.geneY(g0)).isEqualTo(2);
+    }
 }

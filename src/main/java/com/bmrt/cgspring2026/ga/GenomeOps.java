@@ -1,6 +1,7 @@
 package com.bmrt.cgspring2026.ga;
 
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
 
 import java.util.SplittableRandom;
 
@@ -84,7 +85,40 @@ public final class GenomeOps {
         }
         for (int t = 0; t < state.treeCount; t++) warmTreeTakenBuf[t] = false;
 
-        // 4. Boucle round-robin par couche — à compléter dans la tâche suivante
+        // 4. Boucle round-robin par couche
+        for (int kLayer = 0; kLayer < Genome.MAX_TARGETS_PER_TROLL; kLayer++) {
+            boolean anyAssigned = false;
+            for (int kT = 0; kT < ownCount; kT++) {
+                int troll = ownTrollsBuf[kT];
+                int bestTree = -1;
+                int bestDist = PathTable.UNREACHABLE;
+                int cx = warmCurX[troll];
+                int cy = warmCurY[troll];
+                for (int t = 0; t < state.treeCount; t++) {
+                    if (state.treeHealth[t] <= 0) continue;
+                    if (warmTreeTakenBuf[t])      continue;
+                    int tx = state.treeX[t] & 0xFF;
+                    int ty = state.treeY[t] & 0xFF;
+                    int d  = PathTable.distance(cx, cy, tx, ty);
+                    if (d == PathTable.UNREACHABLE) continue;
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestTree = t;
+                    }
+                }
+                if (bestTree >= 0) {
+                    int bx = state.treeX[bestTree] & 0xFF;
+                    int by = state.treeY[bestTree] & 0xFF;
+                    Genome.setGene(buf, individuIdx, troll, kLayer, Genome.encode(bx, by));
+                    Genome.setLen(lenBuf, individuIdx, troll, kLayer + 1);
+                    warmTreeTakenBuf[bestTree] = true;
+                    warmCurX[troll] = bx;
+                    warmCurY[troll] = by;
+                    anyAssigned = true;
+                }
+            }
+            if (!anyAssigned) break;
+        }
     }
 
     public static final double P_MUT_SWAP_INTRA = 0.40;
