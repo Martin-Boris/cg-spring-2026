@@ -121,6 +121,18 @@ public final class GenomeOps {
         }
     }
 
+    public static void initFromPrevBest(GameState state,
+                                        short[] prevBuf, byte[] prevLenBuf,
+                                        short[] dstBuf,  byte[] dstLenBuf,
+                                        int individuIdx) {
+        // 1. Reset du segment de destination
+        int base = Genome.offset(individuIdx, 0);
+        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) dstBuf[base + k] = Genome.EMPTY_GENE;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(dstLenBuf, individuIdx, j, 0);
+
+        // 2. Compactage troll par troll — à compléter dans la tâche suivante
+    }
+
     public static final double P_MUT_SWAP_INTRA = 0.40;
     public static final double P_MUT_SWAP_INTER = 0.30;
     public static final double P_MUT_REVERSE    = 0.20;
