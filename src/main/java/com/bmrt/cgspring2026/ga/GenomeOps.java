@@ -150,4 +150,53 @@ public final class GenomeOps {
         buf[base + len - 1] = Genome.EMPTY_GENE;
         Genome.setLen(lenBuf, individuIdx, j, len - 1);
     }
+
+    private static final boolean[] seenBuf = new boolean[256 * 256]; // max grid 256x256
+
+    public static void crossover(short[] srcA, byte[] lenA, int idxA,
+                                 short[] srcB, byte[] lenB, int idxB,
+                                 short[] dst,  byte[] dstLen, int idxDst,
+                                 SplittableRandom rng) {
+        int W = GameState.width;
+        int H = GameState.height;
+        // Reset offspring
+        int dstBase = Genome.offset(idxDst, 0);
+        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) dst[dstBase + k] = Genome.EMPTY_GENE;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(dstLen, idxDst, j, 0);
+        // Reset seen[] sur la zone utilisée
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) seenBuf[y * W + x] = false;
+        }
+        // OX par troll
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            int la = Genome.len(lenA, idxA, j);
+            int lb = Genome.len(lenB, idxB, j);
+            if (la == 0 && lb == 0) continue;
+            int cut = (la > 0) ? rng.nextInt(la + 1) : 0;
+            int dstOff = Genome.offset(idxDst, j);
+            int written = 0;
+            // Préfixe de P1
+            int aBase = Genome.offset(idxA, j);
+            for (int k = 0; k < cut; k++) {
+                short g = srcA[aBase + k];
+                int x = Genome.geneX(g), y = Genome.geneY(g);
+                int cell = y * W + x;
+                if (seenBuf[cell]) continue; // ne devrait pas arriver si parent valide, défensif
+                seenBuf[cell] = true;
+                dst[dstOff + written++] = g;
+            }
+            // Compléter avec P2
+            int bBase = Genome.offset(idxB, j);
+            int target = (la > 0 ? la : lb);
+            for (int k = 0; k < lb && written < target && written < Genome.MAX_TARGETS_PER_TROLL; k++) {
+                short g = srcB[bBase + k];
+                int x = Genome.geneX(g), y = Genome.geneY(g);
+                int cell = y * W + x;
+                if (seenBuf[cell]) continue;
+                seenBuf[cell] = true;
+                dst[dstOff + written++] = g;
+            }
+            Genome.setLen(dstLen, idxDst, j, written);
+        }
+    }
 }
