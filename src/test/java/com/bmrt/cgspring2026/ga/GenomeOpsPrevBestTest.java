@@ -52,6 +52,14 @@ class GenomeOpsPrevBestTest {
         return new byte[GameState.MAX_TROLLS];
     }
 
+    private static void putPrev(short[] prevBuf, byte[] prevLenBuf, int trollIdx, int[][] cells) {
+        int off = trollIdx * Genome.MAX_TARGETS_PER_TROLL;
+        for (int k = 0; k < cells.length; k++) {
+            prevBuf[off + k] = Genome.encode(cells[k][0], cells[k][1]);
+        }
+        prevLenBuf[trollIdx] = (byte) cells.length;
+    }
+
     private static GameState stateWith(int[][] trolls, int[][] trees) {
         GameState s = new GameState();
         for (int[] tr : trolls) {
@@ -67,6 +75,27 @@ class GenomeOpsPrevBestTest {
             s.treeHealth[i] = (byte) t[2];
         }
         return s;
+    }
+
+    @Test void dropsFirstGeneWhenTargetChopped() {
+        // Trolls (0,0). Trees : (1,0) MORT, (2,0) vivant. Prev-best troll 0 : [(1,0), (2,0)].
+        // Attendu : (1,0) retiré, len=1, gène [(2,0)].
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 0}, {2, 0, 5} }   // (1,0) health=0 → mort
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
+        short g0 = (short) Genome.gene(dst, 0, 0, 0);
+        assertThat(Genome.geneX(g0)).isEqualTo(2);
+        assertThat(Genome.geneY(g0)).isEqualTo(0);
     }
 
     @Test void emptyPrevLenProducesEmptySegment() {

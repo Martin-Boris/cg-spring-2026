@@ -130,7 +130,25 @@ public final class GenomeOps {
         for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) dstBuf[base + k] = Genome.EMPTY_GENE;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(dstLenBuf, individuIdx, j, 0);
 
-        // 2. Compactage troll par troll — à compléter dans la tâche suivante
+        // 2. Compactage troll par troll
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            int prevLen = prevLenBuf[j] & 0xFF;
+            int written = 0;
+            int srcOff = j * Genome.MAX_TARGETS_PER_TROLL;
+            int dstOff = Genome.offset(individuIdx, j);
+            for (int k = 0; k < prevLen; k++) {
+                short g = prevBuf[srcOff + k];
+                if (g == Genome.EMPTY_GENE) continue;
+                int gx = Genome.geneX(g);
+                int gy = Genome.geneY(g);
+                int t = state.treeIndexAt(gx, gy);
+                if (t < 0) continue;
+                if (state.treeHealth[t] <= 0) continue;
+                dstBuf[dstOff + written] = g;
+                written++;
+            }
+            Genome.setLen(dstLenBuf, individuIdx, j, written);
+        }
     }
 
     public static final double P_MUT_SWAP_INTRA = 0.40;
