@@ -96,9 +96,18 @@ public final class GeneticAgent {
     }
 
     private void initPopulation(GameState state) {
-        GenomeOps.initWarm(state, pop.cur, pop.curLen, 0);
-        for (int i = 1; i < Genome.POP_SIZE; i++) {
-            GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
+        if (hasPrevBest) {
+            GenomeOps.initFromPrevBest(state, prevBestBuf, prevBestLen,
+                                       pop.cur, pop.curLen, 0);
+            GenomeOps.initWarm(state, pop.cur, pop.curLen, 1);
+            for (int i = 2; i < Genome.POP_SIZE; i++) {
+                GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
+            }
+        } else {
+            GenomeOps.initWarm(state, pop.cur, pop.curLen, 0);
+            for (int i = 1; i < Genome.POP_SIZE; i++) {
+                GenomeOps.initRandom(state, pop.cur, pop.curLen, i, rng);
+            }
         }
     }
 

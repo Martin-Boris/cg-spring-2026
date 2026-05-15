@@ -70,4 +70,58 @@ class GeneticAgentPrevBestTest {
                 .isEqualTo(agent.pop.curLen[Genome.lenOffset(bestIdx, j)]);
         }
     }
+
+    @Test void firstTurnSlotZeroEqualsInitWarm() {
+        GameState s = simpleState();
+
+        short[] refBuf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(refBuf, Genome.EMPTY_GENE);
+        byte[]  refLen = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        GenomeOps.initWarm(s, refBuf, refLen, 0);
+
+        GeneticAgent agent = new GeneticAgent();
+        long deadline = System.nanoTime() - 1;
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        agent.decide(s, deadline, out);
+
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            assertThat(Genome.len(agent.pop.curLen, 0, j))
+                .as("len troll %d", j)
+                .isEqualTo(Genome.len(refLen, 0, j));
+            int lenJ = Genome.len(refLen, 0, j);
+            for (int k = 0; k < lenJ; k++) {
+                assertThat((short) Genome.gene(agent.pop.cur, 0, j, k))
+                    .as("gene troll %d k %d", j, k)
+                    .isEqualTo((short) Genome.gene(refBuf, 0, j, k));
+            }
+        }
+    }
+
+    @Test void secondTurnSlotZeroSeededFromPrevBest() {
+        GameState s = simpleState();
+        GeneticAgent agent = new GeneticAgent();
+        long deadline = System.nanoTime() - 1;
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+
+        // Tour 1 — peuple prevBestBuf/prevBestLen
+        agent.decide(s, deadline, out);
+        // Snapshot du stash avant tour 2
+        short[] stashBuf = java.util.Arrays.copyOf(agent.prevBestBuf, Genome.SLOTS_PER_GENOME);
+        byte[]  stashLen = java.util.Arrays.copyOf(agent.prevBestLen, GameState.MAX_TROLLS);
+
+        // Tour 2 — initPopulation doit injecter prev-best (compacté = identique ici) au slot 0
+        agent.decide(s, deadline, out);
+
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            assertThat(Genome.len(agent.pop.curLen, 0, j))
+                .as("len troll %d", j)
+                .isEqualTo(stashLen[j] & 0xFF);
+            int lenJ = stashLen[j] & 0xFF;
+            for (int k = 0; k < lenJ; k++) {
+                assertThat((short) Genome.gene(agent.pop.cur, 0, j, k))
+                    .as("gene troll %d k %d", j, k)
+                    .isEqualTo(stashBuf[j * Genome.MAX_TARGETS_PER_TROLL + k]);
+            }
+        }
+    }
 }
