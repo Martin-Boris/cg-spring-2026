@@ -71,7 +71,9 @@
       "Bash(mvn -q -Dtest=SimulatorMoveTest test)",
       "Bash(mvn -Dtest=SimulatorMoveTest test)",
       "Skill(superpowers:brainstorming)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "Bash(mvn -q -o compile)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

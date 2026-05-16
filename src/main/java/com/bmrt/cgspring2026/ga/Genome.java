@@ -9,20 +9,18 @@ public final class Genome {
     public static final int MAX_TARGETS_PER_TROLL = 10;
     public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
     public static final short EMPTY_GENE = -1;
-
-    private Genome() {
-    }
+    public static final short[] plantCandidates = new short[12];
+    // Bit layout: bit15=flag(PLANT=1), bits13-14=fruitType, bits8-12=x(5 bits), bits0-7=y(8 bits)
+    private static final int PLANT_FLAG_MASK = 0x8000;
+    private static final int FRUIT_TYPE_SHIFT = 13;
+    private static final int FRUIT_TYPE_MASK = 0x3 << FRUIT_TYPE_SHIFT;
+    private static final int X_MASK = 0x1F;
+    private static final int X_SHIFT = 8;
+    public static int plantCandidateCount = 0;
 
     public static short encode(int x, int y) {
         return (short) (((x & 0xFF) << 8) | (y & 0xFF));
     }
-
-    // Bit layout: bit15=flag(PLANT=1), bits13-14=fruitType, bits8-12=x(5 bits), bits0-7=y(8 bits)
-    private static final int PLANT_FLAG_MASK  = 0x8000;
-    private static final int FRUIT_TYPE_SHIFT = 13;
-    private static final int FRUIT_TYPE_MASK  = 0x3 << FRUIT_TYPE_SHIFT;
-    private static final int X_MASK           = 0x1F;
-    private static final int X_SHIFT          = 8;
 
     public static short makeTarget(int x, int y) {
         return encode(x, y);
@@ -75,9 +73,6 @@ public final class Genome {
         buf[offset(individuIdx, trollIdx) + k] = value;
     }
 
-    public static final short[] plantCandidates = new short[12];
-    public static int plantCandidateCount = 0;
-
     public static void initPlantCandidates() {
         plantCandidateCount = 0;
         int sx = GameState.shackMeX;
@@ -96,6 +91,11 @@ public final class Genome {
         }
     }
 
-    public static int candX(short c) { return (c >>> 8) & 0xFF; }
-    public static int candY(short c) { return c & 0xFF; }
+    public static int candX(short c) {
+        return (c >>> 8) & 0xFF;
+    }
+
+    public static int candY(short c) {
+        return c & 0xFF;
+    }
 }
