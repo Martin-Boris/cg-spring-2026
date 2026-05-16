@@ -23,8 +23,9 @@ public class Player {
 
         boolean firstTurn = true;
         while (true) {
-            state.readTurn(in);
             long start = System.nanoTime();
+            state.readTurn(in);
+
 
             long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
                     : GeneticAgent.TURN_BUDGET_NS);

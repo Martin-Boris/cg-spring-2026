@@ -4,8 +4,8 @@ import com.bmrt.cgspring2026.model.GameState;
 
 public final class Genome {
 
-    public static final int POP_SIZE = 30;
-    public static final int MAX_TARGETS_PER_TROLL = 15;
+    public static final int POP_SIZE = 20;
+    public static final int MAX_TARGETS_PER_TROLL = 10;
     public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
     public static final short EMPTY_GENE = -1;
 

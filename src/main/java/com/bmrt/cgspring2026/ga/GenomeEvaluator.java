@@ -6,10 +6,11 @@ import com.bmrt.cgspring2026.simulation.Simulator;
 
 public final class GenomeEvaluator {
 
-    public static final int    HORIZON          = 25;
+    public static final int HORIZON = 25;
     public static final double ALPHA_WOOD_CARRY = 2.0;
 
-    private GenomeEvaluator() {}
+    private GenomeEvaluator() {
+    }
 
     public static double evaluate(GameState scratch, GameState source,
                                   short[] popBuf, byte[] popLen, int idx,
@@ -25,7 +26,7 @@ public final class GenomeEvaluator {
     }
 
     private static double fitness(GameState finalState) {
-        int scoreMe  = finalState.score(0);
+        int scoreMe = finalState.score(0);
         int scoreOpp = finalState.score(1);
         int woodCarryMe = 0;
         for (int i = 0; i < finalState.trollCount; i++) {

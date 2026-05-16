@@ -57,8 +57,8 @@ class Player {
 	    private ResourceType() {}
 	}
 	private static class GameState {
-	    public static final int MAX_TREES = 80;
-	    public static final int MAX_TROLLS = 22;
+	    public static final int MAX_TREES = 128;
+	    public static final int MAX_TROLLS = 32;
 	    public static int width;
 	    public static int height;
 	    public static byte[] tiles;
@@ -1608,9 +1608,10 @@ class Player {
 	    }
 	}
 	private static class GenomeEvaluator {
-	    public static final int    HORIZON          = 25;
+	    public static final int HORIZON = 25;
 	    public static final double ALPHA_WOOD_CARRY = 2.0;
-	    private GenomeEvaluator() {}
+	    private GenomeEvaluator() {
+	    }
 	    public static double evaluate(GameState scratch, GameState source,
 	                                  short[] popBuf, byte[] popLen, int idx,
 	                                  int[] actionBuf) {
@@ -1624,7 +1625,7 @@ class Player {
 	        return fitness(scratch);
 	    }
 	    private static double fitness(GameState finalState) {
-	        int scoreMe  = finalState.score(0);
+	        int scoreMe = finalState.score(0);
 	        int scoreOpp = finalState.score(1);
 	        int woodCarryMe = 0;
 	        for (int i = 0; i < finalState.trollCount; i++) {
@@ -1635,8 +1636,8 @@ class Player {
 	    }
 	}
 	private static class Genome {
-	    public static final int POP_SIZE = 30;
-	    public static final int MAX_TARGETS_PER_TROLL = 15;
+	    public static final int POP_SIZE = 20;
+	    public static final int MAX_TARGETS_PER_TROLL = 10;
 	    public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
 	    public static final short EMPTY_GENE = -1;
 	    private Genome() {
@@ -1789,8 +1790,8 @@ class Player {
         StringBuilder sb = new StringBuilder();
         boolean firstTurn = true;
         while (true) {
-            state.readTurn(in);
             long start = System.nanoTime();
+            state.readTurn(in);
             long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
                     : GeneticAgent.TURN_BUDGET_NS);
             int n = agent.decide(state, deadline, actionBuf);
