@@ -89,4 +89,17 @@ class TrollPolicyPlantTest {
         int dist = Math.abs(tx - GameState.shackMeX) + Math.abs(ty - GameState.shackMeY);
         assertThat(dist).isEqualTo(1);
     }
+
+    @Test void phase0_abortsWhenShackHasNoFruit() {
+        GameState s = trollAt(0, 1);
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.LEMON));
+        Genome.setGene(buf, 0, 0, 1, Genome.encode(2, 2));
+        Genome.setLen(lens, 0, 0, 2);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(TrollPolicy.cursorBuf[0]).isEqualTo(2);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.WAIT);
+    }
 }
