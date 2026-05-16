@@ -178,4 +178,18 @@ class TrollPolicyPlantTest {
         assertThat(TrollPolicy.policyPhase[0]).isEqualTo((byte) 0);
         assertThat(Action.type(out[0])).isEqualTo((int) ActionType.WAIT);
     }
+
+    @Test void woodPriorityOverridesPhase0Pick() {
+        GameState s = trollAt(0, 1);
+        s.trollInventory[0 * ResourceType.COUNT + ResourceType.WOOD] = 1;
+        s.trollCarryTotal[0] = 1;
+        s.shackInventory[ResourceType.LEMON] = 3;
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.LEMON));
+        Genome.setLen(lens, 0, 0, 1);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.DROP);
+    }
 }
