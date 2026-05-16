@@ -18,6 +18,7 @@ public final class GenomeEvaluator {
         scratch.copyFrom(source);
         int[] cursor = TrollPolicy.cursorBuf;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) TrollPolicy.policyPhase[j] = 0;
         for (int t = 0; t < HORIZON; t++) {
             int n = TrollPolicy.fillActions(scratch, popBuf, popLen, idx, cursor, actionBuf);
             Simulator.tick(scratch, actionBuf, n);

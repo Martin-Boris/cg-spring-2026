@@ -76,6 +76,7 @@ public final class GeneticAgent {
         // 4. Génère les actions du tick 0
         int[] cursor = TrollPolicy.cursorBuf;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) TrollPolicy.policyPhase[j] = 0;
         int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
 
         // 5. Ajouter TRAIN au tour 0

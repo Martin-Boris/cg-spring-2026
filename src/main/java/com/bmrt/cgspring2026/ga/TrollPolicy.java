@@ -10,6 +10,7 @@ import com.bmrt.cgspring2026.pathfinding.PathTable;
 public final class TrollPolicy {
 
     public static final int[]     cursorBuf      = new int[GameState.MAX_TROLLS];
+    public static final byte[]    policyPhase    = new byte[GameState.MAX_TROLLS];
     public static final boolean[] oppTreeTakenBuf = new boolean[GameState.MAX_TREES];
 
     private TrollPolicy() {}
