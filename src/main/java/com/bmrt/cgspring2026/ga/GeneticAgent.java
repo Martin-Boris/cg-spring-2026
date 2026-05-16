@@ -1,5 +1,7 @@
 package com.bmrt.cgspring2026.ga;
 
+import com.bmrt.cgspring2026.action.Action;
+import com.bmrt.cgspring2026.action.ActionType;
 import com.bmrt.cgspring2026.greedy.GreedyAgent;
 import com.bmrt.cgspring2026.model.GameState;
 
@@ -7,20 +9,29 @@ import java.util.SplittableRandom;
 
 public final class GeneticAgent {
 
-    public static final long TURN_BUDGET_NS = 45_000_000L;
+    public static final long TURN_BUDGET_NS = 44_000_000L;
     public static final long INIT_BUDGET_NS = 920_000_000L;
     public static final double P_CROSSOVER = 0.70;
+    public static final double HYSTERESIS_BONUS = 0.01;
     final Population pop = new Population();
     final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
     final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
     private final GameState scratch = new GameState();
-    private final SplittableRandom rng = new SplittableRandom();
     private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
+    private final int[] prevOutActions = new int[GameState.MAX_TROLLS + 1];
     boolean hasPrevBest = false;
     int lastBestIdx;
+    private SplittableRandom rng;
     private int lastGenCount;
     private double lastBestFitness;
     private boolean plantCandidatesInitialized = false;
+    private int prevOutCount = 0;
+    private boolean hasPrevOut = false;
+
+    private int lastTrollChurn = -1;
+    private int lastActiveTrolls = -1;
+    private int lastHamming = -1;
+    private int lastTieCount = 0;
 
     public GeneticAgent() {
     }
@@ -45,11 +56,70 @@ public final class GeneticAgent {
         return best;
     }
 
+    // CODE UNIQUEMENT POUR LE LOGING START
+    private static int computeHamming(short[] cur, byte[] curLen, int idx,
+                                      short[] prev, byte[] prevLen) {
+        int diff = 0;
+        int curBase = Genome.offset(idx, 0);
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            int curL = curLen[Genome.lenOffset(idx, j)] & 0xFF;
+            int prevL = prevLen[j] & 0xFF;
+            int common = Math.min(curL, prevL);
+            int curTrollBase = curBase + j * Genome.MAX_TARGETS_PER_TROLL;
+            int prevTrollBase = j * Genome.MAX_TARGETS_PER_TROLL;
+            for (int k = 0; k < common; k++) {
+                if (cur[curTrollBase + k] != prev[prevTrollBase + k]) diff++;
+            }
+            diff += Math.abs(curL - prevL);
+        }
+        return diff;
+    }
+
+    private static int computeTieCount(double[] fit, double best) {
+        final double EPS = 1e-6;
+        int count = 0;
+        for (int i = 0; i < fit.length; i++) {
+            if (best - fit[i] < EPS) count++;
+        }
+        return count;
+    }
+
+    private static int computeChurn(int[] cur, int curN, int[] prev, int prevN) {
+        int changed = 0;
+        for (int i = 0; i < curN; i++) {
+            int act = cur[i];
+            if (Action.type(act) == ActionType.TRAIN) continue;
+            int troll = Action.trollIdx(act);
+            boolean foundSame = false;
+            for (int j = 0; j < prevN; j++) {
+                int p = prev[j];
+                if (Action.type(p) == ActionType.TRAIN) continue;
+                if (Action.trollIdx(p) == troll) {
+                    foundSame = (p == act);
+                    break;
+                }
+            }
+            if (!foundSame) changed++;
+        }
+        return changed;
+    }
+
+    private static int countActiveOwnTrolls(GameState state) {
+        int count = 0;
+        for (int i = 0; i < state.trollCount; i++) {
+            if ((state.trollPlayer[i] & 0xFF) == 0) count++;
+        }
+        return count;
+    }
+    // CODE UNIQUEMENT POUR LE LOGING END
+
     public int decide(GameState state, long deadlineNs, int[] outActions) {
         if (!plantCandidatesInitialized) {
             Genome.initPlantCandidates();
             plantCandidatesInitialized = true;
         }
+        // Seed déterministe par tour : élimine la divergence d'exploration tour à tour
+        rng = new SplittableRandom(state.turn ^ 0x9E3779B97F4A7C15L);
         // 1. Init population
         initPopulation(state);
         evaluatePopulation(state);
@@ -66,18 +136,36 @@ public final class GeneticAgent {
         lastBestIdx = argmax(pop.curFit);
         lastBestFitness = pop.curFit[lastBestIdx];
 
-        // Stash du best pour réinjection au tour suivant
-        System.arraycopy(pop.cur, Genome.offset(lastBestIdx, 0),
-                prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
-        System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
-                prevBestLen, 0, GameState.MAX_TROLLS);
-        hasPrevBest = true;
-
         // 4. Génère les actions du tick 0
         int[] cursor = TrollPolicy.cursorBuf;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) TrollPolicy.policyPhase[j] = 0;
         int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
+
+        // Diagnostic: compute metrics on raw GA output (prevBest holds T-1's best ici)
+        // CODE UNIQUEMENT POUR LE LOGING START
+        if (hasPrevBest) {
+            lastHamming = computeHamming(pop.cur, pop.curLen, lastBestIdx,
+                    prevBestBuf, prevBestLen);
+        } else {
+            lastHamming = -1;
+        }
+        lastTieCount = computeTieCount(pop.curFit, lastBestFitness);
+        if (hasPrevOut) {
+            lastTrollChurn = computeChurn(outActions, n, prevOutActions, prevOutCount);
+            lastActiveTrolls = countActiveOwnTrolls(state);
+        } else {
+            lastTrollChurn = -1;
+            lastActiveTrolls = -1;
+        }
+        // CODE UNIQUEMENT POUR LE END
+
+        // Stash du best pour réinjection au tour suivant (APRÈS diagnostic)
+        System.arraycopy(pop.cur, Genome.offset(lastBestIdx, 0),
+                prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
+        System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
+                prevBestLen, 0, GameState.MAX_TROLLS);
+        hasPrevBest = true;
 
         // 5. Ajouter TRAIN au tour 0
         if (state.turn == 0) {
@@ -88,6 +176,14 @@ public final class GeneticAgent {
                 n++;
             }
         }
+
+        // CODE UNIQUEMENT POUR LE LOGING START
+        // Stash outActions pour le tour suivant (diagnostic churn)
+        System.arraycopy(outActions, 0, prevOutActions, 0, n);
+        prevOutCount = n;
+        hasPrevOut = true;
+        // CODE UNIQUEMENT POUR LE END
+
         return n;
     }
 
@@ -98,6 +194,24 @@ public final class GeneticAgent {
     public double lastBestFitness() {
         return lastBestFitness;
     }
+
+    // CODE UNIQUEMENT POUR LE START
+    public int lastTrollChurn() {
+        return lastTrollChurn;
+    }
+
+    public int lastActiveTrolls() {
+        return lastActiveTrolls;
+    }
+
+    public int lastHamming() {
+        return lastHamming;
+    }
+
+    public int lastTieCount() {
+        return lastTieCount;
+    }
+    // CODE UNIQUEMENT POUR LE END
 
     private void initPopulation(GameState state) {
         if (hasPrevBest) {
@@ -117,7 +231,8 @@ public final class GeneticAgent {
 
     private void evaluatePopulation(GameState state) {
         for (int i = 0; i < Genome.POP_SIZE; i++) {
-            pop.curFit[i] = GenomeEvaluator.evaluate(scratch, state, pop.cur, pop.curLen, i, evalActionBuf);
+            double base = GenomeEvaluator.evaluate(scratch, state, pop.cur, pop.curLen, i, evalActionBuf);
+            pop.curFit[i] = base + hysteresisBonus(pop.cur, pop.curLen, i);
         }
     }
 
@@ -139,8 +254,26 @@ public final class GeneticAgent {
                 copyIndividu(pop.cur, pop.curLen, p, pop.nxt, pop.nxtLen, i);
                 GenomeOps.runMutation(pop.nxt, pop.nxtLen, i, rng);
             }
-            pop.nxtFit[i] = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
+            double base = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
+            pop.nxtFit[i] = base + hysteresisBonus(pop.nxt, pop.nxtLen, i);
         }
         pop.swap();
+    }
+
+    private double hysteresisBonus(short[] buf, byte[] lenBuf, int idx) {
+        if (!hasPrevBest) return 0.0;
+        int matches = 0;
+        int base = Genome.offset(idx, 0);
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            int curL = lenBuf[Genome.lenOffset(idx, j)] & 0xFF;
+            int prevL = prevBestLen[j] & 0xFF;
+            int common = Math.min(curL, prevL);
+            int curBase = base + j * Genome.MAX_TARGETS_PER_TROLL;
+            int prevBase = j * Genome.MAX_TARGETS_PER_TROLL;
+            for (int k = 0; k < common; k++) {
+                if (buf[curBase + k] == prevBestBuf[prevBase + k]) matches++;
+            }
+        }
+        return HYSTERESIS_BONUS * matches;
     }
 }

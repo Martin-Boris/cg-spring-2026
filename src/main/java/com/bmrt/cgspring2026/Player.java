@@ -23,8 +23,9 @@ public class Player {
 
         boolean firstTurn = true;
         while (true) {
-            long start = System.nanoTime();
+
             state.readTurn(in);
+            long start = System.nanoTime();
 
 
             long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
@@ -40,6 +41,14 @@ public class Player {
             sb.append(";MSG GA gen=").append(agent.lastGenCount())
                     .append(" fit=").append((int) agent.lastBestFitness())
                     .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
+            if (agent.lastTrollChurn() >= 0) {
+                sb.append(" chg=").append(agent.lastTrollChurn())
+                  .append("/").append(agent.lastActiveTrolls());
+            }
+            if (agent.lastHamming() >= 0) {
+                sb.append(" dh=").append(agent.lastHamming());
+            }
+            sb.append(" tie=").append(agent.lastTieCount());
             System.out.println(sb);
 
             state.turn++;

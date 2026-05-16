@@ -1224,6 +1224,7 @@ class Player {
 	}
 	private static class TrollPolicy {
 	    public static final int[]     cursorBuf      = new int[GameState.MAX_TROLLS];
+	    public static final byte[]    policyPhase    = new byte[GameState.MAX_TROLLS];
 	    public static final boolean[] oppTreeTakenBuf = new boolean[GameState.MAX_TREES];
 	    private TrollPolicy() {}
 	    public static int fillActions(GameState s, short[] popBuf, byte[] popLen, int idx,
@@ -1262,9 +1263,34 @@ class Player {
 	        int len = Genome.len(popLen, idx, trollIdx);
 	        while (cursor[trollIdx] < len) {
 	            short g = (short) Genome.gene(popBuf, idx, trollIdx, cursor[trollIdx]);
-	            if (g == Genome.EMPTY_GENE) { cursor[trollIdx]++; continue; }
+	            if (g == Genome.EMPTY_GENE) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
 	            int gx = Genome.geneX(g), gy = Genome.geneY(g);
-	            if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; continue; }
+	            if (!Genome.isPlant(g)) {
+	                if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
+	                if (tx == gx && ty == gy) return Action.chop(trollIdx);
+	                return Action.move(trollIdx, gx, gy);
+	            }
+	            int fruit = Genome.plantFruitType(g);
+	            int t = s.treeIndexAt(gx, gy);
+	            if (policyPhase[trollIdx] == 0 && t >= 0) policyPhase[trollIdx] = 1;
+	            if (policyPhase[trollIdx] == 0) {
+	                int carryFruit = s.trollInventory[trollIdx * ResourceType.COUNT + fruit] & 0xFF;
+	                if (carryFruit == 0) {
+	                    int shackStock = s.shackInventory[fruit];
+	                    if (shackStock <= 0) {
+	                        cursor[trollIdx]++; policyPhase[trollIdx] = 0;
+	                        continue;
+	                    }
+	                    if (isShackAdjacent(tx, ty)) return Action.pick(trollIdx, fruit);
+	                    return Action.move(trollIdx, closestShackAdjX(tx, ty), closestShackAdjY(tx, ty));
+	                }
+	                if (tx == gx && ty == gy) {
+	                    policyPhase[trollIdx] = 1;
+	                    return Action.plant(trollIdx, fruit);
+	                }
+	                return Action.move(trollIdx, gx, gy);
+	            }
+	            if (t < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
 	            if (tx == gx && ty == gy) return Action.chop(trollIdx);
 	            return Action.move(trollIdx, gx, gy);
 	        }
@@ -1328,7 +1354,8 @@ class Player {
 	    }
 	}
 	private static class GenomeOps {
-	    public static final double P_SKIP_INIT = 0.30;
+	    public static final double P_SKIP_INIT  = 0.30;
+	    public static final double P_PLANT_INIT = 0.30;
 	    private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
 	    private static final int[]   ownTrollsBuf    = new int[GameState.MAX_TROLLS];
 	    private static final int[]   freeTrollsBuf   = new int[GameState.MAX_TROLLS];
@@ -1370,6 +1397,31 @@ class Player {
 	            int len = Genome.len(lenBuf, individuIdx, chosenTroll);
 	            Genome.setGene(buf, individuIdx, chosenTroll, len, shuffleBuf[i]);
 	            Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
+	        }
+	        if (Genome.plantCandidateCount > 0) {
+	            for (int p = 0; p < Genome.plantCandidateCount; p++) {
+	                short c = Genome.plantCandidates[p];
+	                initSeenPlant[Genome.candY(c) * GameState.width + Genome.candX(c)] = false;
+	            }
+	            for (int k = 0; k < ownTrollsCount; k++) {
+	                int trollIdx = ownTrollsBuf[k];
+	                int len = Genome.len(lenBuf, individuIdx, trollIdx);
+	                if (len >= Genome.MAX_TARGETS_PER_TROLL) continue;
+	                if (rng.nextDouble() >= P_PLANT_INIT) continue;
+	                int tries = 0;
+	                while (tries < Genome.plantCandidateCount) {
+	                    short c = Genome.plantCandidates[rng.nextInt(Genome.plantCandidateCount)];
+	                    int cx = Genome.candX(c), cy = Genome.candY(c);
+	                    if (!initSeenPlant[cy * GameState.width + cx]) {
+	                        int fruit = rng.nextInt(4);
+	                        Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makePlant(cx, cy, fruit));
+	                        Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
+	                        initSeenPlant[cy * GameState.width + cx] = true;
+	                        break;
+	                    }
+	                    tries++;
+	                }
+	            }
 	        }
 	    }
 	    public static void initWarm(GameState state, short[] buf, byte[] lenBuf, int individuIdx) {
@@ -1447,14 +1499,16 @@ class Player {
 	            Genome.setLen(dstLenBuf, individuIdx, j, written);
 	        }
 	    }
-	    public static final double P_MUT_SWAP_INTRA = 0.40;
-	    public static final double P_MUT_SWAP_INTER = 0.30;
-	    public static final double P_MUT_REVERSE    = 0.20;
-	    public static final double P_MUT_DELETE     = 0.10;
-	    public static final int MUT_SWAP_INTRA = 0;
-	    public static final int MUT_SWAP_INTER = 1;
-	    public static final int MUT_REVERSE    = 2;
-	    public static final int MUT_DELETE     = 3;
+	    public static final double P_MUT_SWAP_INTRA   = 0.35;
+	    public static final double P_MUT_SWAP_INTER   = 0.25;
+	    public static final double P_MUT_REVERSE      = 0.15;
+	    public static final double P_MUT_DELETE       = 0.10;
+	    public static final double P_MUT_INSERT_PLANT = 0.15;
+	    public static final int MUT_SWAP_INTRA   = 0;
+	    public static final int MUT_SWAP_INTER   = 1;
+	    public static final int MUT_REVERSE      = 2;
+	    public static final int MUT_DELETE       = 3;
+	    public static final int MUT_INSERT_PLANT = 4;
 	    public static int pickMutationKind(SplittableRandom rng) {
 	        double r = rng.nextDouble();
 	        if (r < P_MUT_SWAP_INTRA) return MUT_SWAP_INTRA;
@@ -1462,14 +1516,17 @@ class Player {
 	        if (r < P_MUT_SWAP_INTER) return MUT_SWAP_INTER;
 	        r -= P_MUT_SWAP_INTER;
 	        if (r < P_MUT_REVERSE) return MUT_REVERSE;
-	        return MUT_DELETE;
+	        r -= P_MUT_REVERSE;
+	        if (r < P_MUT_DELETE) return MUT_DELETE;
+	        return MUT_INSERT_PLANT;
 	    }
 	    public static void runMutation(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
 	        switch (pickMutationKind(rng)) {
-	            case MUT_SWAP_INTRA -> mutateSwapIntra(buf, lenBuf, individuIdx, rng);
-	            case MUT_SWAP_INTER -> mutateSwapInter(buf, lenBuf, individuIdx, rng);
-	            case MUT_REVERSE    -> mutateReverse  (buf, lenBuf, individuIdx, rng);
-	            case MUT_DELETE     -> mutateDelete   (buf, lenBuf, individuIdx, rng);
+	            case MUT_SWAP_INTRA   -> mutateSwapIntra  (buf, lenBuf, individuIdx, rng);
+	            case MUT_SWAP_INTER   -> mutateSwapInter  (buf, lenBuf, individuIdx, rng);
+	            case MUT_REVERSE      -> mutateReverse    (buf, lenBuf, individuIdx, rng);
+	            case MUT_DELETE       -> mutateDelete     (buf, lenBuf, individuIdx, rng);
+	            case MUT_INSERT_PLANT -> mutateInsertPlant(buf, lenBuf, individuIdx, rng);
 	            default -> throw new IllegalStateException();
 	        }
 	    }
@@ -1528,7 +1585,52 @@ class Player {
 	        buf[base + len - 1] = Genome.EMPTY_GENE;
 	        Genome.setLen(lenBuf, individuIdx, j, len - 1);
 	    }
-	    private static final boolean[] seenBuf = new boolean[256 * 256]; // max grid 256x256
+	    private static final boolean[] initSeenPlant  = new boolean[256 * 256];
+	    private static final boolean[] seenTargetBuf = new boolean[256 * 256];
+	    private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
+	    private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
+	    public static void mutateInsertPlant(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+	        if (Genome.plantCandidateCount == 0) return;
+	        int count = 0;
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+	            if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL) {
+	                freeTrollsBuf[count++] = j;
+	            }
+	        }
+	        if (count == 0) return;
+	        int j = freeTrollsBuf[rng.nextInt(count)];
+	        int len = Genome.len(lenBuf, individuIdx, j);
+	        int W = GameState.width;
+	        for (int p = 0; p < Genome.plantCandidateCount; p++) {
+	            short c = Genome.plantCandidates[p];
+	            mutSeenPlant[Genome.candY(c) * W + Genome.candX(c)] = false;
+	        }
+	        for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+	            int tjLen = Genome.len(lenBuf, individuIdx, tj);
+	            int base = Genome.offset(individuIdx, tj);
+	            for (int k = 0; k < tjLen; k++) {
+	                short g = buf[base + k];
+	                if (Genome.isPlant(g)) {
+	                    mutSeenPlant[Genome.geneY(g) * W + Genome.geneX(g)] = true;
+	                }
+	            }
+	        }
+	        int tries = 0;
+	        while (tries < Genome.plantCandidateCount) {
+	            short c = Genome.plantCandidates[rng.nextInt(Genome.plantCandidateCount)];
+	            int cx = Genome.candX(c), cy = Genome.candY(c);
+	            if (!mutSeenPlant[cy * W + cx]) {
+	                int pos = rng.nextInt(len + 1);
+	                int base = Genome.offset(individuIdx, j);
+	                for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+	                int fruit = rng.nextInt(4);
+	                buf[base + pos] = Genome.makePlant(cx, cy, fruit);
+	                Genome.setLen(lenBuf, individuIdx, j, len + 1);
+	                return;
+	            }
+	            tries++;
+	        }
+	    }
 	    public static void crossover(short[] srcA, byte[] lenA, int idxA,
 	                                 short[] srcB, byte[] lenB, int idxB,
 	                                 short[] dst,  byte[] dstLen, int idxDst,
@@ -1539,7 +1641,10 @@ class Player {
 	        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) dst[dstBase + k] = Genome.EMPTY_GENE;
 	        for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(dstLen, idxDst, j, 0);
 	        for (int y = 0; y < H; y++) {
-	            for (int x = 0; x < W; x++) seenBuf[y * W + x] = false;
+	            for (int x = 0; x < W; x++) {
+	                seenTargetBuf[y * W + x] = false;
+	                seenPlantBuf[y * W + x]  = false;
+	            }
 	        }
 	        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
 	            int la = Genome.len(lenA, idxA, j);
@@ -1552,9 +1657,10 @@ class Player {
 	            for (int k = 0; k < cut; k++) {
 	                short g = srcA[aBase + k];
 	                int x = Genome.geneX(g), y = Genome.geneY(g);
+	                boolean[] seen = Genome.isPlant(g) ? seenPlantBuf : seenTargetBuf;
 	                int cell = y * W + x;
-	                if (seenBuf[cell]) continue; // ne devrait pas arriver si parent valide, défensif
-	                seenBuf[cell] = true;
+	                if (seen[cell]) continue; // ne devrait pas arriver si parent valide, défensif
+	                seen[cell] = true;
 	                dst[dstOff + written++] = g;
 	            }
 	            int bBase = Genome.offset(idxB, j);
@@ -1562,9 +1668,10 @@ class Player {
 	            for (int k = 0; k < lb && written < target && written < Genome.MAX_TARGETS_PER_TROLL; k++) {
 	                short g = srcB[bBase + k];
 	                int x = Genome.geneX(g), y = Genome.geneY(g);
+	                boolean[] seen = Genome.isPlant(g) ? seenPlantBuf : seenTargetBuf;
 	                int cell = y * W + x;
-	                if (seenBuf[cell]) continue;
-	                seenBuf[cell] = true;
+	                if (seen[cell]) continue;
+	                seen[cell] = true;
 	                dst[dstOff + written++] = g;
 	            }
 	            Genome.setLen(dstLen, idxDst, j, written);
@@ -1576,7 +1683,8 @@ class Player {
 	    public static boolean check(short[] buf, byte[] lenBuf, int individuIdx) {
 	        int W = GameState.width;
 	        int H = GameState.height;
-	        boolean[] seen = new boolean[W * H];
+	        boolean[] seenTarget = new boolean[W * H];
+	        boolean[] seenPlant  = new boolean[W * H];
 	        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
 	            int len = Genome.len(lenBuf, individuIdx, j);
 	            if (len < 0 || len > Genome.MAX_TARGETS_PER_TROLL) {
@@ -1592,11 +1700,12 @@ class Player {
 	                if (x < 0 || x >= W || y < 0 || y >= H) {
 	                    throw new AssertionError("gene out of bounds (" + x + "," + y + ")");
 	                }
-	                int idx = y * W + x;
-	                if (seen[idx]) {
-	                    throw new AssertionError("duplicate gene (" + x + "," + y + ")");
+	                int cellIdx = y * W + x;
+	                boolean[] seen = Genome.isPlant(g) ? seenPlant : seenTarget;
+	                if (seen[cellIdx]) {
+	                    throw new AssertionError("duplicate gene (" + x + "," + y + ") isPlant=" + Genome.isPlant(g));
 	                }
-	                seen[idx] = true;
+	                seen[cellIdx] = true;
 	            }
 	            for (int k = len; k < Genome.MAX_TARGETS_PER_TROLL; k++) {
 	                if (Genome.gene(buf, individuIdx, j, k) != Genome.EMPTY_GENE) {
@@ -1618,6 +1727,7 @@ class Player {
 	        scratch.copyFrom(source);
 	        int[] cursor = TrollPolicy.cursorBuf;
 	        for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) TrollPolicy.policyPhase[j] = 0;
 	        for (int t = 0; t < HORIZON; t++) {
 	            int n = TrollPolicy.fillActions(scratch, popBuf, popLen, idx, cursor, actionBuf);
 	            Simulator.tick(scratch, actionBuf, n);
@@ -1645,8 +1755,28 @@ class Player {
 	    public static short encode(int x, int y) {
 	        return (short) (((x & 0xFF) << 8) | (y & 0xFF));
 	    }
+	    private static final int PLANT_FLAG_MASK  = 0x8000;
+	    private static final int FRUIT_TYPE_SHIFT = 13;
+	    private static final int FRUIT_TYPE_MASK  = 0x3 << FRUIT_TYPE_SHIFT;
+	    private static final int X_MASK           = 0x1F;
+	    private static final int X_SHIFT          = 8;
+	    public static short makeTarget(int x, int y) {
+	        return encode(x, y);
+	    }
+	    public static short makePlant(int x, int y, int fruitType) {
+	        return (short) (PLANT_FLAG_MASK
+	                | ((fruitType & 0x3) << FRUIT_TYPE_SHIFT)
+	                | ((x & X_MASK) << X_SHIFT)
+	                | (y & 0xFF));
+	    }
+	    public static boolean isPlant(short g) {
+	        return (g & PLANT_FLAG_MASK) != 0;
+	    }
+	    public static int plantFruitType(short g) {
+	        return (g & FRUIT_TYPE_MASK) >>> FRUIT_TYPE_SHIFT;
+	    }
 	    public static int geneX(short g) {
-	        return (g >>> 8) & 0xFF;
+	        return (g >>> X_SHIFT) & X_MASK;
 	    }
 	    public static int geneY(short g) {
 	        return g & 0xFF;
@@ -1669,21 +1799,51 @@ class Player {
 	    public static void setGene(short[] buf, int individuIdx, int trollIdx, int k, short value) {
 	        buf[offset(individuIdx, trollIdx) + k] = value;
 	    }
+	    public static final short[] plantCandidates = new short[12];
+	    public static int plantCandidateCount = 0;
+	    public static void initPlantCandidates() {
+	        plantCandidateCount = 0;
+	        int sx = GameState.shackMeX;
+	        int sy = GameState.shackMeY;
+	        for (int dx = -2; dx <= 2; dx++) {
+	            int x = sx + dx;
+	            if (x < 0 || x >= GameState.width) continue;
+	            int yRange = 2 - Math.abs(dx);
+	            for (int dy = -yRange; dy <= yRange; dy++) {
+	                int y = sy + dy;
+	                if (y < 0 || y >= GameState.height) continue;
+	                if (dx == 0 && dy == 0) continue;
+	                if (GameState.tiles[y * GameState.width + x] != TileType.GRASS) continue;
+	                plantCandidates[plantCandidateCount++] = (short) ((x << 8) | y);
+	            }
+	        }
+	    }
+	    public static int candX(short c) { return (c >>> 8) & 0xFF; }
+	    public static int candY(short c) { return c & 0xFF; }
 	}
 	private static class GeneticAgent {
-	    public static final long TURN_BUDGET_NS = 45_000_000L;
+	    public static final long TURN_BUDGET_NS = 44_000_000L;
 	    public static final long INIT_BUDGET_NS = 920_000_000L;
 	    public static final double P_CROSSOVER = 0.70;
+	    public static final double HYSTERESIS_BONUS = 0.01;
 	    final Population pop = new Population();
 	    final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
 	    final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
 	    private final GameState scratch = new GameState();
-	    private final SplittableRandom rng = new SplittableRandom();
+	    private SplittableRandom rng;
 	    private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
 	    boolean hasPrevBest = false;
 	    int lastBestIdx;
 	    private int lastGenCount;
 	    private double lastBestFitness;
+	    private boolean plantCandidatesInitialized = false;
+	    private final int[] prevOutActions = new int[GameState.MAX_TROLLS + 1];
+	    private int prevOutCount = 0;
+	    private boolean hasPrevOut = false;
+	    private int lastTrollChurn = -1;
+	    private int lastActiveTrolls = -1;
+	    private int lastHamming = -1;
+	    private int lastTieCount = 0;
 	    public GeneticAgent() {
 	    }
 	    private static void copyIndividu(short[] srcBuf, byte[] srcLen, int srcIdx,
@@ -1705,6 +1865,11 @@ class Player {
 	        return best;
 	    }
 	    public int decide(GameState state, long deadlineNs, int[] outActions) {
+	        if (!plantCandidatesInitialized) {
+	            Genome.initPlantCandidates();
+	            plantCandidatesInitialized = true;
+	        }
+	        rng = new SplittableRandom(state.turn ^ 0x9E3779B97F4A7C15L);
 	        initPopulation(state);
 	        evaluatePopulation(state);
 	        lastGenCount = 0;
@@ -1715,14 +1880,29 @@ class Player {
 	        }
 	        lastBestIdx = argmax(pop.curFit);
 	        lastBestFitness = pop.curFit[lastBestIdx];
+	        int[] cursor = TrollPolicy.cursorBuf;
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) TrollPolicy.policyPhase[j] = 0;
+	        int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
+	        if (hasPrevBest) {
+	            lastHamming = computeHamming(pop.cur, pop.curLen, lastBestIdx,
+	                                         prevBestBuf, prevBestLen);
+	        } else {
+	            lastHamming = -1;
+	        }
+	        lastTieCount = computeTieCount(pop.curFit, lastBestFitness);
+	        if (hasPrevOut) {
+	            lastTrollChurn = computeChurn(outActions, n, prevOutActions, prevOutCount);
+	            lastActiveTrolls = countActiveOwnTrolls(state);
+	        } else {
+	            lastTrollChurn = -1;
+	            lastActiveTrolls = -1;
+	        }
 	        System.arraycopy(pop.cur, Genome.offset(lastBestIdx, 0),
 	                prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
 	        System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
 	                prevBestLen, 0, GameState.MAX_TROLLS);
 	        hasPrevBest = true;
-	        int[] cursor = TrollPolicy.cursorBuf;
-	        for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
-	        int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, cursor, outActions);
 	        if (state.turn == 0) {
 	            int trainAction = GreedyAgent.maybeTrain(state);
 	            if (trainAction != -1) {
@@ -1731,6 +1911,9 @@ class Player {
 	                n++;
 	            }
 	        }
+	        System.arraycopy(outActions, 0, prevOutActions, 0, n);
+	        prevOutCount = n;
+	        hasPrevOut = true;
 	        return n;
 	    }
 	    public int lastGenCount() {
@@ -1738,6 +1921,61 @@ class Player {
 	    }
 	    public double lastBestFitness() {
 	        return lastBestFitness;
+	    }
+	    public int lastTrollChurn()   { return lastTrollChurn; }
+	    public int lastActiveTrolls() { return lastActiveTrolls; }
+	    public int lastHamming()      { return lastHamming; }
+	    public int lastTieCount()     { return lastTieCount; }
+	    private static int computeHamming(short[] cur, byte[] curLen, int idx,
+	                                      short[] prev, byte[] prevLen) {
+	        int diff = 0;
+	        int curBase = Genome.offset(idx, 0);
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+	            int curL = curLen[Genome.lenOffset(idx, j)] & 0xFF;
+	            int prevL = prevLen[j] & 0xFF;
+	            int common = Math.min(curL, prevL);
+	            int curTrollBase = curBase + j * Genome.MAX_TARGETS_PER_TROLL;
+	            int prevTrollBase = j * Genome.MAX_TARGETS_PER_TROLL;
+	            for (int k = 0; k < common; k++) {
+	                if (cur[curTrollBase + k] != prev[prevTrollBase + k]) diff++;
+	            }
+	            diff += Math.abs(curL - prevL);
+	        }
+	        return diff;
+	    }
+	    private static int computeTieCount(double[] fit, double best) {
+	        final double EPS = 1e-6;
+	        int count = 0;
+	        for (int i = 0; i < fit.length; i++) {
+	            if (best - fit[i] < EPS) count++;
+	        }
+	        return count;
+	    }
+	    private static int computeChurn(int[] cur, int curN, int[] prev, int prevN) {
+	        int changed = 0;
+	        for (int i = 0; i < curN; i++) {
+	            int act = cur[i];
+	            if (Action.type(act) == ActionType.TRAIN) continue;
+	            int troll = Action.trollIdx(act);
+	            boolean foundSame = false;
+	            for (int j = 0; j < prevN; j++) {
+	                int p = prev[j];
+	                if (Action.type(p) == ActionType.TRAIN) continue;
+	                if (Action.trollIdx(p) == troll) {
+	                    foundSame = (p == act);
+	                    break;
+	                }
+	            }
+	            if (!foundSame) changed++;
+	        }
+	        return changed;
+	    }
+	    private static int countActiveOwnTrolls(GameState state) {
+	        int count = 0;
+	        for (int i = 0; i < state.trollCount; i++) {
+	            if ((state.trollPlayer[i] & 0xFF) == 0) count++;
+	        }
+	        return count;
 	    }
 	    private void initPopulation(GameState state) {
 	        if (hasPrevBest) {
@@ -1756,7 +1994,8 @@ class Player {
 	    }
 	    private void evaluatePopulation(GameState state) {
 	        for (int i = 0; i < Genome.POP_SIZE; i++) {
-	            pop.curFit[i] = GenomeEvaluator.evaluate(scratch, state, pop.cur, pop.curLen, i, evalActionBuf);
+	            double base = GenomeEvaluator.evaluate(scratch, state, pop.cur, pop.curLen, i, evalActionBuf);
+	            pop.curFit[i] = base + hysteresisBonus(pop.cur, pop.curLen, i);
 	        }
 	    }
 	    private void stepGeneration(GameState state) {
@@ -1774,9 +2013,26 @@ class Player {
 	                copyIndividu(pop.cur, pop.curLen, p, pop.nxt, pop.nxtLen, i);
 	                GenomeOps.runMutation(pop.nxt, pop.nxtLen, i, rng);
 	            }
-	            pop.nxtFit[i] = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
+	            double base = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
+	            pop.nxtFit[i] = base + hysteresisBonus(pop.nxt, pop.nxtLen, i);
 	        }
 	        pop.swap();
+	    }
+	    private double hysteresisBonus(short[] buf, byte[] lenBuf, int idx) {
+	        if (!hasPrevBest) return 0.0;
+	        int matches = 0;
+	        int base = Genome.offset(idx, 0);
+	        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+	            int curL = lenBuf[Genome.lenOffset(idx, j)] & 0xFF;
+	            int prevL = prevBestLen[j] & 0xFF;
+	            int common = Math.min(curL, prevL);
+	            int curBase = base + j * Genome.MAX_TARGETS_PER_TROLL;
+	            int prevBase = j * Genome.MAX_TARGETS_PER_TROLL;
+	            for (int k = 0; k < common; k++) {
+	                if (buf[curBase + k] == prevBestBuf[prevBase + k]) matches++;
+	            }
+	        }
+	        return HYSTERESIS_BONUS * matches;
 	    }
 	}
     public static void main(String[] args) {
@@ -1790,8 +2046,8 @@ class Player {
         StringBuilder sb = new StringBuilder();
         boolean firstTurn = true;
         while (true) {
-            long start = System.nanoTime();
             state.readTurn(in);
+            long start = System.nanoTime();
             long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
                     : GeneticAgent.TURN_BUDGET_NS);
             int n = agent.decide(state, deadline, actionBuf);
@@ -1804,6 +2060,14 @@ class Player {
             sb.append(";MSG GA gen=").append(agent.lastGenCount())
                     .append(" fit=").append((int) agent.lastBestFitness())
                     .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
+            if (agent.lastTrollChurn() >= 0) {
+                sb.append(" chg=").append(agent.lastTrollChurn())
+                  .append("/").append(agent.lastActiveTrolls());
+            }
+            if (agent.lastHamming() >= 0) {
+                sb.append(" dh=").append(agent.lastHamming());
+            }
+            sb.append(" tie=").append(agent.lastTieCount());
             System.out.println(sb);
             state.turn++;
         }

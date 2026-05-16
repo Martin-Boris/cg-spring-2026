@@ -69,7 +69,9 @@
       "Bash(mvn -q -Dtest=SimulatorChopTest test)",
       "Bash(mvn -q -Dtest=SimulatorTrainTest test)",
       "Bash(mvn -q -Dtest=SimulatorMoveTest test)",
-      "Bash(mvn -Dtest=SimulatorMoveTest test)"
+      "Bash(mvn -Dtest=SimulatorMoveTest test)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(Get-ChildItem *)"
     ]
   }
 }
