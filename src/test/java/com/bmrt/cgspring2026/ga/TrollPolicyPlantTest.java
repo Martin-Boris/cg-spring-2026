@@ -148,4 +148,20 @@ class TrollPolicyPlantTest {
         assertThat(Action.type(out[0])).isEqualTo((int) ActionType.CHOP);
         assertThat(TrollPolicy.policyPhase[0]).isEqualTo((byte) 1);
     }
+
+    @Test void phase1_chopsWhenOnTargetWithLiveTree() {
+        GameState s = trollAt(0, 2);
+        s.treeCount = 1;
+        s.treeX[0] = 0; s.treeY[0] = 2;
+        s.treeHealth[0] = 3;
+        s.treeType[0] = TreeType.LEMON;
+        TrollPolicy.policyPhase[0] = 1;
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.LEMON));
+        Genome.setLen(lens, 0, 0, 1);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.CHOP);
+    }
 }
