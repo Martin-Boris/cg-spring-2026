@@ -66,7 +66,32 @@ public final class TrollPolicy {
                 return Action.move(trollIdx, gx, gy);
             }
 
-            cursor[trollIdx]++; policyPhase[trollIdx] = 0; // TODO: replace with PLANT logic (Task 6)
+            int fruit = Genome.plantFruitType(g);
+            int t = s.treeIndexAt(gx, gy);
+
+            if (policyPhase[trollIdx] == 0 && t >= 0) policyPhase[trollIdx] = 1;
+
+            if (policyPhase[trollIdx] == 0) {
+                int carryFruit = s.trollInventory[trollIdx * ResourceType.COUNT + fruit] & 0xFF;
+                if (carryFruit == 0) {
+                    int shackStock = s.shackInventory[fruit];
+                    if (shackStock <= 0) {
+                        cursor[trollIdx]++; policyPhase[trollIdx] = 0;
+                        continue;
+                    }
+                    if (isShackAdjacent(tx, ty)) return Action.pick(trollIdx, fruit);
+                    return Action.move(trollIdx, closestShackAdjX(tx, ty), closestShackAdjY(tx, ty));
+                }
+                if (tx == gx && ty == gy) {
+                    policyPhase[trollIdx] = 1;
+                    return Action.plant(trollIdx, fruit);
+                }
+                return Action.move(trollIdx, gx, gy);
+            }
+
+            if (t < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
+            if (tx == gx && ty == gy) return Action.chop(trollIdx);
+            return Action.move(trollIdx, gx, gy);
         }
         return Action.wait(trollIdx);
     }
