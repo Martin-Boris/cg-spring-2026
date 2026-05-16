@@ -1,6 +1,7 @@
 package com.bmrt.cgspring2026.ga;
 
 import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.TileType;
 
 public final class Genome {
 
@@ -73,4 +74,28 @@ public final class Genome {
     public static void setGene(short[] buf, int individuIdx, int trollIdx, int k, short value) {
         buf[offset(individuIdx, trollIdx) + k] = value;
     }
+
+    public static final short[] plantCandidates = new short[12];
+    public static int plantCandidateCount = 0;
+
+    public static void initPlantCandidates() {
+        plantCandidateCount = 0;
+        int sx = GameState.shackMeX;
+        int sy = GameState.shackMeY;
+        for (int dx = -2; dx <= 2; dx++) {
+            int x = sx + dx;
+            if (x < 0 || x >= GameState.width) continue;
+            int yRange = 2 - Math.abs(dx);
+            for (int dy = -yRange; dy <= yRange; dy++) {
+                int y = sy + dy;
+                if (y < 0 || y >= GameState.height) continue;
+                if (dx == 0 && dy == 0) continue;
+                if (GameState.tiles[y * GameState.width + x] != TileType.GRASS) continue;
+                plantCandidates[plantCandidateCount++] = (short) ((x << 8) | y);
+            }
+        }
+    }
+
+    public static int candX(short c) { return (c >>> 8) & 0xFF; }
+    public static int candY(short c) { return c & 0xFF; }
 }
