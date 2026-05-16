@@ -102,4 +102,19 @@ class TrollPolicyPlantTest {
         assertThat(TrollPolicy.cursorBuf[0]).isEqualTo(2);
         assertThat(Action.type(out[0])).isEqualTo((int) ActionType.WAIT);
     }
+
+    @Test void phase0_plantsWhenOnTargetWithFruit() {
+        GameState s = trollAt(0, 2);
+        s.trollInventory[0 * ResourceType.COUNT + ResourceType.BANANA] = 1;
+        s.trollCarryTotal[0] = 1;
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.BANANA));
+        Genome.setLen(lens, 0, 0, 1);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.PLANT);
+        assertThat(Action.arg1(out[0])).isEqualTo((int) TreeType.BANANA);
+        assertThat(TrollPolicy.policyPhase[0]).isEqualTo((byte) 1);
+    }
 }
