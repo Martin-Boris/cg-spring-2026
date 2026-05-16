@@ -54,16 +54,19 @@ public final class TrollPolicy {
             return Action.move(trollIdx, closestShackAdjX(tx, ty), closestShackAdjY(tx, ty));
         }
 
-        // Avancer le cursor sur les targets mortes ou invalides
         int len = Genome.len(popLen, idx, trollIdx);
         while (cursor[trollIdx] < len) {
             short g = (short) Genome.gene(popBuf, idx, trollIdx, cursor[trollIdx]);
-            if (g == Genome.EMPTY_GENE) { cursor[trollIdx]++; continue; }
+            if (g == Genome.EMPTY_GENE) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
             int gx = Genome.geneX(g), gy = Genome.geneY(g);
-            if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; continue; }
-            // Target valide trouvée
-            if (tx == gx && ty == gy) return Action.chop(trollIdx);
-            return Action.move(trollIdx, gx, gy);
+
+            if (!Genome.isPlant(g)) {
+                if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
+                if (tx == gx && ty == gy) return Action.chop(trollIdx);
+                return Action.move(trollIdx, gx, gy);
+            }
+
+            cursor[trollIdx]++; policyPhase[trollIdx] = 0; // TODO: replace with PLANT logic (Task 6)
         }
         return Action.wait(trollIdx);
     }
