@@ -86,16 +86,17 @@ class GenomeOpsMutationTest {
 
     @Test void runMutationDispatchesProbabilistically() {
         SplittableRandom rng = new SplittableRandom(42);
-        int[] counters = new int[5];
+        int[] counters = new int[6];
         for (int t = 0; t < 1000; t++) {
             counters[GenomeOps.pickMutationKind(rng)]++;
         }
-        for (int k = 0; k < 5; k++) {
+        for (int k = 0; k < 6; k++) {
             assertThat(counters[k]).as("operator %d sampled at least once", k).isGreaterThan(30);
         }
-        assertThat(counters[GenomeOps.MUT_SWAP_INTRA]).isBetween(280, 420);
+        assertThat(counters[GenomeOps.MUT_SWAP_INTRA]).isBetween(180, 320);
         assertThat(counters[GenomeOps.MUT_DELETE]).isBetween(50, 150);
         assertThat(counters[GenomeOps.MUT_INSERT_PLANT]).isBetween(100, 200);
+        assertThat(counters[GenomeOps.MUT_INSERT_CUT]).isBetween(150, 250);
     }
 
     @Test void pickMutationKindIncludesInsertPlant() {
@@ -111,10 +112,11 @@ class GenomeOpsMutationTest {
         GameState.shackMeX = 0; GameState.shackMeY = 0;
         Genome.initPlantCandidates();
         assertThat(Genome.plantCandidateCount).isGreaterThan(0);
+        GameState state = new GameState();
         SplittableRandom rng = new SplittableRandom(2026);
         boolean planted = false;
         for (int i = 0; i < 200 && !planted; i++) {
-            GenomeOps.runMutation(buf, lenBuf, 0, rng);
+            GenomeOps.runMutation(state, buf, lenBuf, 0, rng);
             for (int j = 0; j < GameState.MAX_TROLLS && !planted; j++) {
                 int len = Genome.len(lenBuf, 0, j);
                 for (int k = 0; k < len; k++) {

@@ -1499,16 +1499,18 @@ written++;
 Genome.setLen(dstLenBuf, individuIdx, j, written);
 }
 }
-public static final double P_MUT_SWAP_INTRA   = 0.35;
-public static final double P_MUT_SWAP_INTER   = 0.25;
-public static final double P_MUT_REVERSE      = 0.15;
+public static final double P_MUT_SWAP_INTRA   = 0.25;
+public static final double P_MUT_SWAP_INTER   = 0.20;
+public static final double P_MUT_REVERSE      = 0.10;
 public static final double P_MUT_DELETE       = 0.10;
 public static final double P_MUT_INSERT_PLANT = 0.15;
+public static final double P_MUT_INSERT_CUT   = 0.20;
 public static final int MUT_SWAP_INTRA   = 0;
 public static final int MUT_SWAP_INTER   = 1;
 public static final int MUT_REVERSE      = 2;
 public static final int MUT_DELETE       = 3;
 public static final int MUT_INSERT_PLANT = 4;
+public static final int MUT_INSERT_CUT   = 5;
 public static int pickMutationKind(SplittableRandom rng) {
 double r = rng.nextDouble();
 if (r < P_MUT_SWAP_INTRA) return MUT_SWAP_INTRA;
@@ -1518,15 +1520,18 @@ r -= P_MUT_SWAP_INTER;
 if (r < P_MUT_REVERSE) return MUT_REVERSE;
 r -= P_MUT_REVERSE;
 if (r < P_MUT_DELETE) return MUT_DELETE;
-return MUT_INSERT_PLANT;
+r -= P_MUT_DELETE;
+if (r < P_MUT_INSERT_PLANT) return MUT_INSERT_PLANT;
+return MUT_INSERT_CUT;
 }
-public static void runMutation(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+public static void runMutation(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
 switch (pickMutationKind(rng)) {
 case MUT_SWAP_INTRA   -> mutateSwapIntra  (buf, lenBuf, individuIdx, rng);
 case MUT_SWAP_INTER   -> mutateSwapInter  (buf, lenBuf, individuIdx, rng);
 case MUT_REVERSE      -> mutateReverse    (buf, lenBuf, individuIdx, rng);
 case MUT_DELETE       -> mutateDelete     (buf, lenBuf, individuIdx, rng);
 case MUT_INSERT_PLANT -> mutateInsertPlant(buf, lenBuf, individuIdx, rng);
+case MUT_INSERT_CUT   -> mutateInsertCut  (state, buf, lenBuf, individuIdx, rng);
 default -> throw new IllegalStateException();
 }
 }
@@ -1589,6 +1594,8 @@ private static final boolean[] initSeenPlant  = new boolean[256 * 256];
 private static final boolean[] seenTargetBuf = new boolean[256 * 256];
 private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
 private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
+private static final boolean[] mutSeenCut    = new boolean[GameState.MAX_TREES];
+private static final int[]     cutCandidatesBuf = new int[GameState.MAX_TREES];
 public static void mutateInsertPlant(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
 if (Genome.plantCandidateCount == 0) return;
 int count = 0;
@@ -1630,6 +1637,44 @@ return;
 }
 tries++;
 }
+}
+public static void mutateInsertCut(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+int count = 0;
+for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL) {
+freeTrollsBuf[count++] = j;
+}
+}
+if (count == 0) return;
+int j = freeTrollsBuf[rng.nextInt(count)];
+int len = Genome.len(lenBuf, individuIdx, j);
+for (int t = 0; t < state.treeCount; t++) mutSeenCut[t] = false;
+for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+int tjLen = Genome.len(lenBuf, individuIdx, tj);
+int base = Genome.offset(individuIdx, tj);
+for (int k = 0; k < tjLen; k++) {
+short g = buf[base + k];
+if (g == Genome.EMPTY_GENE) continue;
+if (Genome.isPlant(g)) continue;
+int t = state.treeIndexAt(Genome.geneX(g), Genome.geneY(g));
+if (t >= 0) mutSeenCut[t] = true;
+}
+}
+int candCount = 0;
+for (int t = 0; t < state.treeCount; t++) {
+if (state.treeHealth[t] > 0 && !mutSeenCut[t]) {
+cutCandidatesBuf[candCount++] = t;
+}
+}
+if (candCount == 0) return;
+int t = cutCandidatesBuf[rng.nextInt(candCount)];
+int tx = state.treeX[t] & 0xFF;
+int ty = state.treeY[t] & 0xFF;
+int pos = rng.nextInt(len + 1);
+int base = Genome.offset(individuIdx, j);
+for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+buf[base + pos] = Genome.encode(tx, ty);
+Genome.setLen(lenBuf, individuIdx, j, len + 1);
 }
 public static void crossover(short[] srcA, byte[] lenA, int idxA,
 short[] srcB, byte[] lenB, int idxB,
@@ -1747,7 +1792,7 @@ return (scoreMe - scoreOpp) + ALPHA_WOOD_CARRY * woodCarryMe;
 }
 private static class Genome {
 public static final int POP_SIZE = 20;
-public static final int MAX_TARGETS_PER_TROLL = 5;
+public static final int MAX_TARGETS_PER_TROLL = 10;
 public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
 public static final short EMPTY_GENE = -1;
 public static final short[] plantCandidates = new short[12];
@@ -1757,8 +1802,6 @@ private static final int FRUIT_TYPE_MASK = 0x3 << FRUIT_TYPE_SHIFT;
 private static final int X_MASK = 0x1F;
 private static final int X_SHIFT = 8;
 public static int plantCandidateCount = 0;
-private Genome() {
-}
 public static short encode(int x, int y) {
 return (short) (((x & 0xFF) << 8) | (y & 0xFF));
 }
@@ -1831,12 +1874,14 @@ public static final long INIT_BUDGET_NS = 920_000_000L;
 public static final double P_CROSSOVER = 0.70;
 public static final double HYSTERESIS_BONUS = 0.01;
 public static final boolean INSTRUMENT = true;
+public static final int IMMIGRANTS_PER_GEN = 2;
 final Population pop = new Population();
 final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
 final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
 private final GameState scratch = new GameState();
 private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
 private final int[] prevOutActions = new int[GameState.MAX_TROLLS + 1];
+private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
 boolean hasPrevBest = false;
 int lastBestIdx;
 private SplittableRandom rng;
@@ -1849,14 +1894,13 @@ private int lastTrollChurn = -1;
 private int lastActiveTrolls = -1;
 private int lastHamming = -1;
 private int lastTieCount = 0;
-private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
-private int lastAliveTrees       = -1;
-private int lastCoverageInit     = -1;
-private int lastCoverageFinal    = -1;
-private int lastBestCoverage     = -1;
+private int lastAliveTrees = -1;
+private int lastCoverageInit = -1;
+private int lastCoverageFinal = -1;
+private int lastBestCoverage = -1;
 private int lastIndivCoverageSum = -1;
-private int lastTotalCuts        = -1;
-private int lastUnresolvedGenes  = -1;
+private int lastTotalCuts = -1;
+private int lastUnresolvedGenes = -1;
 public GeneticAgent() {
 }
 private static void copyIndividu(short[] srcBuf, byte[] srcLen, int srcIdx,
@@ -2017,17 +2061,17 @@ initPopulation(state);
 evaluatePopulation(state);
 lastGenCount = 0;
 if (INSTRUMENT) {
-lastAliveTrees   = countAliveTrees(state);
+lastAliveTrees = countAliveTrees(state);
 lastCoverageInit = computePopTreeCoverage(state, pop.cur, pop.curLen);
 computeIndivStats(state, pop.cur, pop.curLen);
 } else {
-lastAliveTrees       = -1;
-lastCoverageInit     = -1;
-lastCoverageFinal    = -1;
-lastBestCoverage     = -1;
+lastAliveTrees = -1;
+lastCoverageInit = -1;
+lastCoverageFinal = -1;
+lastBestCoverage = -1;
 lastIndivCoverageSum = -1;
-lastTotalCuts        = -1;
-lastUnresolvedGenes  = -1;
+lastTotalCuts = -1;
+lastUnresolvedGenes = -1;
 }
 while (System.nanoTime() < deadlineNs) {
 stepGeneration(state);
@@ -2096,13 +2140,27 @@ return lastHamming;
 public int lastTieCount() {
 return lastTieCount;
 }
-public int lastAliveTrees()       { return lastAliveTrees; }
-public int lastCoverageInit()     { return lastCoverageInit; }
-public int lastCoverageFinal()    { return lastCoverageFinal; }
-public int lastBestCoverage()     { return lastBestCoverage; }
-public int lastIndivCoverageSum() { return lastIndivCoverageSum; }
-public int lastTotalCuts()        { return lastTotalCuts; }
-public int lastUnresolvedGenes()  { return lastUnresolvedGenes; }
+public int lastAliveTrees() {
+return lastAliveTrees;
+}
+public int lastCoverageInit() {
+return lastCoverageInit;
+}
+public int lastCoverageFinal() {
+return lastCoverageFinal;
+}
+public int lastBestCoverage() {
+return lastBestCoverage;
+}
+public int lastIndivCoverageSum() {
+return lastIndivCoverageSum;
+}
+public int lastTotalCuts() {
+return lastTotalCuts;
+}
+public int lastUnresolvedGenes() {
+return lastUnresolvedGenes;
+}
 private void initPopulation(GameState state) {
 if (hasPrevBest) {
 GenomeOps.initFromPrevBest(state, prevBestBuf, prevBestLen,
@@ -2128,7 +2186,8 @@ private void stepGeneration(GameState state) {
 int bestIdx = argmax(pop.curFit);
 copyIndividu(pop.cur, pop.curLen, bestIdx, pop.nxt, pop.nxtLen, 0);
 pop.nxtFit[0] = pop.curFit[bestIdx];
-for (int i = 1; i < Genome.POP_SIZE; i++) {
+int immigrantStart = Genome.POP_SIZE - IMMIGRANTS_PER_GEN;
+for (int i = 1; i < immigrantStart; i++) {
 if (rng.nextDouble() < P_CROSSOVER) {
 int p1 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
 int p2 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
@@ -2137,8 +2196,13 @@ pop.nxt, pop.nxtLen, i, rng);
 } else {
 int p = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
 copyIndividu(pop.cur, pop.curLen, p, pop.nxt, pop.nxtLen, i);
-GenomeOps.runMutation(pop.nxt, pop.nxtLen, i, rng);
+GenomeOps.runMutation(state, pop.nxt, pop.nxtLen, i, rng);
 }
+double base = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
+pop.nxtFit[i] = base + hysteresisBonus(pop.nxt, pop.nxtLen, i);
+}
+for (int i = immigrantStart; i < Genome.POP_SIZE; i++) {
+GenomeOps.initRandom(state, pop.nxt, pop.nxtLen, i, rng);
 double base = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
 pop.nxtFit[i] = base + hysteresisBonus(pop.nxt, pop.nxtLen, i);
 }

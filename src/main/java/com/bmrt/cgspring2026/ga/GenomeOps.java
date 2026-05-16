@@ -179,17 +179,19 @@ public final class GenomeOps {
         }
     }
 
-    public static final double P_MUT_SWAP_INTRA   = 0.35;
-    public static final double P_MUT_SWAP_INTER   = 0.25;
-    public static final double P_MUT_REVERSE      = 0.15;
+    public static final double P_MUT_SWAP_INTRA   = 0.25;
+    public static final double P_MUT_SWAP_INTER   = 0.20;
+    public static final double P_MUT_REVERSE      = 0.10;
     public static final double P_MUT_DELETE       = 0.10;
     public static final double P_MUT_INSERT_PLANT = 0.15;
+    public static final double P_MUT_INSERT_CUT   = 0.20;
 
     public static final int MUT_SWAP_INTRA   = 0;
     public static final int MUT_SWAP_INTER   = 1;
     public static final int MUT_REVERSE      = 2;
     public static final int MUT_DELETE       = 3;
     public static final int MUT_INSERT_PLANT = 4;
+    public static final int MUT_INSERT_CUT   = 5;
 
     public static int pickMutationKind(SplittableRandom rng) {
         double r = rng.nextDouble();
@@ -200,16 +202,19 @@ public final class GenomeOps {
         if (r < P_MUT_REVERSE) return MUT_REVERSE;
         r -= P_MUT_REVERSE;
         if (r < P_MUT_DELETE) return MUT_DELETE;
-        return MUT_INSERT_PLANT;
+        r -= P_MUT_DELETE;
+        if (r < P_MUT_INSERT_PLANT) return MUT_INSERT_PLANT;
+        return MUT_INSERT_CUT;
     }
 
-    public static void runMutation(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+    public static void runMutation(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
         switch (pickMutationKind(rng)) {
             case MUT_SWAP_INTRA   -> mutateSwapIntra  (buf, lenBuf, individuIdx, rng);
             case MUT_SWAP_INTER   -> mutateSwapInter  (buf, lenBuf, individuIdx, rng);
             case MUT_REVERSE      -> mutateReverse    (buf, lenBuf, individuIdx, rng);
             case MUT_DELETE       -> mutateDelete     (buf, lenBuf, individuIdx, rng);
             case MUT_INSERT_PLANT -> mutateInsertPlant(buf, lenBuf, individuIdx, rng);
+            case MUT_INSERT_CUT   -> mutateInsertCut  (state, buf, lenBuf, individuIdx, rng);
             default -> throw new IllegalStateException();
         }
     }
@@ -279,6 +284,8 @@ public final class GenomeOps {
     private static final boolean[] seenTargetBuf = new boolean[256 * 256];
     private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
     private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
+    private static final boolean[] mutSeenCut    = new boolean[GameState.MAX_TREES];
+    private static final int[]     cutCandidatesBuf = new int[GameState.MAX_TREES];
 
     public static void mutateInsertPlant(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
         if (Genome.plantCandidateCount == 0) return;
@@ -323,6 +330,56 @@ public final class GenomeOps {
             }
             tries++;
         }
+    }
+
+    /**
+     * Insère un gène CUT pointant vers un arbre vivant absent du génome de l'individu.
+     * Permet de ré-injecter de la diversité de cibles que la boucle évolutive aurait éliminée.
+     */
+    public static void mutateInsertCut(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        // 1. Pick un troll avec de la place
+        int count = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL) {
+                freeTrollsBuf[count++] = j;
+            }
+        }
+        if (count == 0) return;
+        int j = freeTrollsBuf[rng.nextInt(count)];
+        int len = Genome.len(lenBuf, individuIdx, j);
+
+        // 2. Marquer les arbres déjà présents dans le génome
+        for (int t = 0; t < state.treeCount; t++) mutSeenCut[t] = false;
+        for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+            int tjLen = Genome.len(lenBuf, individuIdx, tj);
+            int base = Genome.offset(individuIdx, tj);
+            for (int k = 0; k < tjLen; k++) {
+                short g = buf[base + k];
+                if (g == Genome.EMPTY_GENE) continue;
+                if (Genome.isPlant(g)) continue;
+                int t = state.treeIndexAt(Genome.geneX(g), Genome.geneY(g));
+                if (t >= 0) mutSeenCut[t] = true;
+            }
+        }
+
+        // 3. Construire la liste des arbres vivants candidats (absents du génome)
+        int candCount = 0;
+        for (int t = 0; t < state.treeCount; t++) {
+            if (state.treeHealth[t] > 0 && !mutSeenCut[t]) {
+                cutCandidatesBuf[candCount++] = t;
+            }
+        }
+        if (candCount == 0) return;
+
+        // 4. Piocher un arbre et l'insérer à une position aléatoire
+        int t = cutCandidatesBuf[rng.nextInt(candCount)];
+        int tx = state.treeX[t] & 0xFF;
+        int ty = state.treeY[t] & 0xFF;
+        int pos = rng.nextInt(len + 1);
+        int base = Genome.offset(individuIdx, j);
+        for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+        buf[base + pos] = Genome.encode(tx, ty);
+        Genome.setLen(lenBuf, individuIdx, j, len + 1);
     }
 
     public static void crossover(short[] srcA, byte[] lenA, int idxA,

@@ -73,7 +73,9 @@
       "Skill(superpowers:brainstorming)",
       "Bash(Get-ChildItem *)",
       "Bash(mvn -q -o compile)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(mvn -q -o test)",
+      "Bash(mvn -o test)"
     ]
   }
 }

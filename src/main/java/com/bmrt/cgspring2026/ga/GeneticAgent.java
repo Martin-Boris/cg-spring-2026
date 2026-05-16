@@ -16,12 +16,15 @@ public final class GeneticAgent {
     // Toggle d'instrumentation diagnostique. Mettre à false pour désactiver
     // tous les calculs de métriques (JIT élimine les branches mortes).
     public static final boolean INSTRUMENT = true;
+    public static final int IMMIGRANTS_PER_GEN = 2;
     final Population pop = new Population();
     final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
     final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
     private final GameState scratch = new GameState();
     private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
     private final int[] prevOutActions = new int[GameState.MAX_TROLLS + 1];
+    // CODE UNIQUEMENT POUR LE LOGING START
+    private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
     boolean hasPrevBest = false;
     int lastBestIdx;
     private SplittableRandom rng;
@@ -30,22 +33,18 @@ public final class GeneticAgent {
     private boolean plantCandidatesInitialized = false;
     private int prevOutCount = 0;
     private boolean hasPrevOut = false;
-
     private int lastTrollChurn = -1;
     private int lastActiveTrolls = -1;
     private int lastHamming = -1;
     private int lastTieCount = 0;
-
-    // CODE UNIQUEMENT POUR LE LOGING START
-    private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
-    private int lastAliveTrees       = -1;
-    private int lastCoverageInit     = -1;
-    private int lastCoverageFinal    = -1;
-    private int lastBestCoverage     = -1;
+    private int lastAliveTrees = -1;
+    private int lastCoverageInit = -1;
+    private int lastCoverageFinal = -1;
+    private int lastBestCoverage = -1;
     private int lastIndivCoverageSum = -1;
-    private int lastTotalCuts        = -1;
-    private int lastUnresolvedGenes  = -1;
+    private int lastTotalCuts = -1;
     // CODE UNIQUEMENT POUR LE LOGING END
+    private int lastUnresolvedGenes = -1;
 
     public GeneticAgent() {
     }
@@ -134,7 +133,9 @@ public final class GeneticAgent {
         return n;
     }
 
-    /** Nombre d'arbres vivants distincts référencés par un gène CUT dans toute la pop. */
+    /**
+     * Nombre d'arbres vivants distincts référencés par un gène CUT dans toute la pop.
+     */
     private int computePopTreeCoverage(GameState state, short[] buf, byte[] lenBuf) {
         for (int t = 0; t < state.treeCount; t++) coverageSeen[t] = false;
         for (int i = 0; i < Genome.POP_SIZE; i++) {
@@ -159,9 +160,9 @@ public final class GeneticAgent {
 
     /**
      * Calcule trois métriques en un seul passage :
-     *  - somme (sur tous les individus) du nb d'arbres vivants distincts ciblés par l'individu
-     *  - nombre total de gènes CUT non-vides (mesure du remplissage de la pop)
-     *  - nombre de gènes CUT qui ne résolvent pas vers un arbre vivant (test d'encodage)
+     * - somme (sur tous les individus) du nb d'arbres vivants distincts ciblés par l'individu
+     * - nombre total de gènes CUT non-vides (mesure du remplissage de la pop)
+     * - nombre de gènes CUT qui ne résolvent pas vers un arbre vivant (test d'encodage)
      */
     private void computeIndivStats(GameState state, short[] buf, byte[] lenBuf) {
         int totalCuts = 0;
@@ -195,8 +196,11 @@ public final class GeneticAgent {
         lastTotalCuts = totalCuts;
         lastUnresolvedGenes = unresolved;
     }
+    // CODE UNIQUEMENT POUR LE LOGING END
 
-    /** Nombre d'arbres vivants distincts référencés par le best individu uniquement. */
+    /**
+     * Nombre d'arbres vivants distincts référencés par le best individu uniquement.
+     */
     private int computeIndivTreeCoverage(GameState state, short[] buf, byte[] lenBuf, int idx) {
         for (int t = 0; t < state.treeCount; t++) coverageSeen[t] = false;
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
@@ -216,7 +220,6 @@ public final class GeneticAgent {
         for (int t = 0; t < state.treeCount; t++) if (coverageSeen[t]) count++;
         return count;
     }
-    // CODE UNIQUEMENT POUR LE LOGING END
 
     public int decide(GameState state, long deadlineNs, int[] outActions) {
         if (!plantCandidatesInitialized) {
@@ -232,17 +235,17 @@ public final class GeneticAgent {
 
         // CODE UNIQUEMENT POUR LE LOGING START
         if (INSTRUMENT) {
-            lastAliveTrees   = countAliveTrees(state);
+            lastAliveTrees = countAliveTrees(state);
             lastCoverageInit = computePopTreeCoverage(state, pop.cur, pop.curLen);
             computeIndivStats(state, pop.cur, pop.curLen);
         } else {
-            lastAliveTrees       = -1;
-            lastCoverageInit     = -1;
-            lastCoverageFinal    = -1;
-            lastBestCoverage     = -1;
+            lastAliveTrees = -1;
+            lastCoverageInit = -1;
+            lastCoverageFinal = -1;
+            lastBestCoverage = -1;
             lastIndivCoverageSum = -1;
-            lastTotalCuts        = -1;
-            lastUnresolvedGenes  = -1;
+            lastTotalCuts = -1;
+            lastUnresolvedGenes = -1;
         }
         // CODE UNIQUEMENT POUR LE LOGING END
 
@@ -345,14 +348,34 @@ public final class GeneticAgent {
         return lastTieCount;
     }
 
-    public int lastAliveTrees()       { return lastAliveTrees; }
-    public int lastCoverageInit()     { return lastCoverageInit; }
-    public int lastCoverageFinal()    { return lastCoverageFinal; }
-    public int lastBestCoverage()     { return lastBestCoverage; }
-    public int lastIndivCoverageSum() { return lastIndivCoverageSum; }
-    public int lastTotalCuts()        { return lastTotalCuts; }
-    public int lastUnresolvedGenes()  { return lastUnresolvedGenes; }
+    public int lastAliveTrees() {
+        return lastAliveTrees;
+    }
+
+    public int lastCoverageInit() {
+        return lastCoverageInit;
+    }
+
+    public int lastCoverageFinal() {
+        return lastCoverageFinal;
+    }
+
+    public int lastBestCoverage() {
+        return lastBestCoverage;
+    }
+
+    public int lastIndivCoverageSum() {
+        return lastIndivCoverageSum;
+    }
+
+    public int lastTotalCuts() {
+        return lastTotalCuts;
+    }
     // CODE UNIQUEMENT POUR LE END
+
+    public int lastUnresolvedGenes() {
+        return lastUnresolvedGenes;
+    }
 
     private void initPopulation(GameState state) {
         if (hasPrevBest) {
@@ -383,8 +406,9 @@ public final class GeneticAgent {
         copyIndividu(pop.cur, pop.curLen, bestIdx, pop.nxt, pop.nxtLen, 0);
         pop.nxtFit[0] = pop.curFit[bestIdx];
 
-        // Génère offspring
-        for (int i = 1; i < Genome.POP_SIZE; i++) {
+        // Génère offspring (les IMMIGRANTS_PER_GEN derniers slots sont réservés à l'immigration)
+        int immigrantStart = Genome.POP_SIZE - IMMIGRANTS_PER_GEN;
+        for (int i = 1; i < immigrantStart; i++) {
             if (rng.nextDouble() < P_CROSSOVER) {
                 int p1 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
                 int p2 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
@@ -393,11 +417,19 @@ public final class GeneticAgent {
             } else {
                 int p = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
                 copyIndividu(pop.cur, pop.curLen, p, pop.nxt, pop.nxtLen, i);
-                GenomeOps.runMutation(pop.nxt, pop.nxtLen, i, rng);
+                GenomeOps.runMutation(state, pop.nxt, pop.nxtLen, i, rng);
             }
             double base = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
             pop.nxtFit[i] = base + hysteresisBonus(pop.nxt, pop.nxtLen, i);
         }
+
+        // Immigration : remplace les derniers slots par des génomes fraîchement aléatoires
+        for (int i = immigrantStart; i < Genome.POP_SIZE; i++) {
+            GenomeOps.initRandom(state, pop.nxt, pop.nxtLen, i, rng);
+            double base = GenomeEvaluator.evaluate(scratch, state, pop.nxt, pop.nxtLen, i, evalActionBuf);
+            pop.nxtFit[i] = base + hysteresisBonus(pop.nxt, pop.nxtLen, i);
+        }
+
         pop.swap();
     }
 
