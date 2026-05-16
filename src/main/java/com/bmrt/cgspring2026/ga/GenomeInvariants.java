@@ -9,7 +9,8 @@ public final class GenomeInvariants {
     public static boolean check(short[] buf, byte[] lenBuf, int individuIdx) {
         int W = GameState.width;
         int H = GameState.height;
-        boolean[] seen = new boolean[W * H];
+        boolean[] seenTarget = new boolean[W * H];
+        boolean[] seenPlant  = new boolean[W * H];
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
             int len = Genome.len(lenBuf, individuIdx, j);
             if (len < 0 || len > Genome.MAX_TARGETS_PER_TROLL) {
@@ -25,11 +26,12 @@ public final class GenomeInvariants {
                 if (x < 0 || x >= W || y < 0 || y >= H) {
                     throw new AssertionError("gene out of bounds (" + x + "," + y + ")");
                 }
-                int idx = y * W + x;
-                if (seen[idx]) {
-                    throw new AssertionError("duplicate gene (" + x + "," + y + ")");
+                int cellIdx = y * W + x;
+                boolean[] seen = Genome.isPlant(g) ? seenPlant : seenTarget;
+                if (seen[cellIdx]) {
+                    throw new AssertionError("duplicate gene (" + x + "," + y + ") isPlant=" + Genome.isPlant(g));
                 }
-                seen[idx] = true;
+                seen[cellIdx] = true;
             }
             for (int k = len; k < Genome.MAX_TARGETS_PER_TROLL; k++) {
                 if (Genome.gene(buf, individuIdx, j, k) != Genome.EMPTY_GENE) {

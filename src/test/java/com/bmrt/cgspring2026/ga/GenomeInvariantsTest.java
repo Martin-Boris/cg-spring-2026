@@ -52,4 +52,26 @@ class GenomeInvariantsTest {
         assertThatThrownBy(() -> GenomeInvariants.check(buf, lenBuf, 0))
             .isInstanceOf(AssertionError.class);
     }
+
+    @Test void allowsTargetAndPlantOnSameCell() {
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        byte[] lenBuf = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        Genome.setGene(buf, 0, 0, 0, Genome.makeTarget(3, 4));
+        Genome.setGene(buf, 0, 0, 1, Genome.makePlant(3, 4, com.bmrt.cgspring2026.model.TreeType.LEMON));
+        Genome.setLen(lenBuf, 0, 0, 2);
+        assertThat(GenomeInvariants.check(buf, lenBuf, 0)).isTrue();
+    }
+
+    @Test void detectsDuplicatePlantOnSameCell() {
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        byte[] lenBuf = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(3, 4, com.bmrt.cgspring2026.model.TreeType.PLUM));
+        Genome.setGene(buf, 0, 1, 0, Genome.makePlant(3, 4, com.bmrt.cgspring2026.model.TreeType.LEMON));
+        Genome.setLen(lenBuf, 0, 0, 1);
+        Genome.setLen(lenBuf, 0, 1, 1);
+        assertThatThrownBy(() -> GenomeInvariants.check(buf, lenBuf, 0))
+            .isInstanceOf(AssertionError.class);
+    }
 }
