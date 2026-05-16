@@ -1,71 +1,48 @@
 package com.bmrt.cgspring2026;
 
+import com.bmrt.cgspring2026.action.Action;
+import com.bmrt.cgspring2026.ga.GeneticAgent;
+import com.bmrt.cgspring2026.greedy.ShackAdjacency;
+import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
+
 import java.util.Scanner;
 
 public class Player {
 
-    private static final long FIRST_TURN_BUDGET_MS = 900;
-    private static final long TURN_BUDGET_MS = 45;
-
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
-        int width = in.nextInt();
-        int height = in.nextInt();
-        if (in.hasNextLine()) {
-            in.nextLine();
-        }
-        for (int i = 0; i < height; i++) {
-            String line = in.nextLine();
-        }
+        GameState.readInit(in);
+        PathTable.init();
+        ShackAdjacency.init();
 
-        // game loop
+        GameState state = new GameState();
+        GeneticAgent agent = new GeneticAgent();
+        int[] actionBuf = new int[GameState.MAX_TROLLS + 1];
+        StringBuilder sb = new StringBuilder();
+
+        boolean firstTurn = true;
         while (true) {
-            for (int i = 0; i < 2; i++) {
-                int plum = in.nextInt();
-                int lemon = in.nextInt();
-                int apple = in.nextInt();
-                int banana = in.nextInt();
-                int iron = in.nextInt();
-                int wood = in.nextInt();
-            }
-            int treesCount = in.nextInt();
-            for (int i = 0; i < treesCount; i++) {
-                String type = in.next();
-                int x = in.nextInt();
-                int y = in.nextInt();
-                int size = in.nextInt();
-                int health = in.nextInt();
-                int fruits = in.nextInt();
-                int cooldown = in.nextInt();
-            }
-            int trollsCount = in.nextInt();
-            for (int i = 0; i < trollsCount; i++) {
-                int id = in.nextInt();
-                int player = in.nextInt();
-                int x = in.nextInt();
-                int y = in.nextInt();
-                int movementSpeed = in.nextInt();
-                int carryCapacity = in.nextInt();
-                int harvestPower = in.nextInt();
-                int chopPower = in.nextInt();
-                int carryPlum = in.nextInt();
-                int carryLemon = in.nextInt();
-                int carryApple = in.nextInt();
-                int carryBanana = in.nextInt();
-                int carryIron = in.nextInt();
-                int carryWood = in.nextInt();
-            }
-
-            // Write an action using System.out.println()
-            // To debug: System.err.println("Debug messages...");
+            long start = System.nanoTime();
+            state.readTurn(in);
 
 
-            // valid actions:
-            // MOVE <id> <x> <y>
-            // HARVEST <id> - when you are on the same cell as a tree
-            // DROP <id> - when you are next to your shack and carry items
-            System.out.println("MOVE 0 7 7");
+            long deadline = start + (firstTurn ? GeneticAgent.INIT_BUDGET_NS
+                    : GeneticAgent.TURN_BUDGET_NS);
+            int n = agent.decide(state, deadline, actionBuf);
+            firstTurn = false;
+
+            sb.setLength(0);
+            for (int i = 0; i < n; i++) {
+                if (i > 0) sb.append(';');
+                sb.append(Action.toCommand(actionBuf[i], state));
+            }
+            sb.append(";MSG GA gen=").append(agent.lastGenCount())
+                    .append(" fit=").append((int) agent.lastBestFitness())
+                    .append(" t=").append((System.nanoTime() - start) / 1_000_000).append("ms");
+            System.out.println(sb);
+
+            state.turn++;
         }
-
     }
 }

@@ -1,0 +1,229 @@
+package com.bmrt.cgspring2026.ga;
+
+import com.bmrt.cgspring2026.greedy.ShackAdjacency;
+import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.TileType;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class GenomeOpsPrevBestTest {
+
+    @BeforeEach void grid() {
+        String[] rows = {
+            "......",
+            "......",
+            "......",
+            "......",
+            "......",
+            "......"
+        };
+        GameState.height = rows.length;
+        GameState.width  = rows[0].length();
+        GameState.tiles  = new byte[GameState.width * GameState.height];
+        for (int y = 0; y < GameState.height; y++) {
+            for (int x = 0; x < GameState.width; x++) {
+                GameState.tiles[y * GameState.width + x] = TileType.fromChar(rows[y].charAt(x));
+            }
+        }
+        PathTable.init();
+        ShackAdjacency.init();
+    }
+
+    private static short[] newPopBuf() {
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        return buf;
+    }
+
+    private static byte[] newPopLen() {
+        return new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+    }
+
+    private static short[] newPrevBuf() {
+        short[] buf = new short[Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        return buf;
+    }
+
+    private static byte[] newPrevLen() {
+        return new byte[GameState.MAX_TROLLS];
+    }
+
+    private static void putPrev(short[] prevBuf, byte[] prevLenBuf, int trollIdx, int[][] cells) {
+        int off = trollIdx * Genome.MAX_TARGETS_PER_TROLL;
+        for (int k = 0; k < cells.length; k++) {
+            prevBuf[off + k] = Genome.encode(cells[k][0], cells[k][1]);
+        }
+        prevLenBuf[trollIdx] = (byte) cells.length;
+    }
+
+    private static GameState stateWith(int[][] trolls, int[][] trees) {
+        GameState s = new GameState();
+        for (int[] tr : trolls) {
+            int i = s.trollCount++;
+            s.trollPlayer[i] = (byte) tr[0];
+            s.trollX[i]      = (byte) tr[1];
+            s.trollY[i]      = (byte) tr[2];
+        }
+        for (int[] t : trees) {
+            int i = s.treeCount++;
+            s.treeX[i]      = (byte) t[0];
+            s.treeY[i]      = (byte) t[1];
+            s.treeHealth[i] = (byte) t[2];
+        }
+        return s;
+    }
+
+    @Test void dropsFirstGeneWhenTargetChopped() {
+        // Trolls (0,0). Trees : (1,0) MORT, (2,0) vivant. Prev-best troll 0 : [(1,0), (2,0)].
+        // Attendu : (1,0) retiré, len=1, gène [(2,0)].
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 0}, {2, 0, 5} }   // (1,0) health=0 → mort
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
+        short g0 = (short) Genome.gene(dst, 0, 0, 0);
+        assertThat(Genome.geneX(g0)).isEqualTo(2);
+        assertThat(Genome.geneY(g0)).isEqualTo(0);
+    }
+
+    @Test void compactsDeadTreeInMiddle() {
+        // Trolls (0,0). Prev-best troll 0 : [(1,0), (3,0)_MORT, (2,0)]. Attendu : [(1,0), (2,0)].
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 5}, {3, 0, 0}, {2, 0, 5} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {3, 0}, {2, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2);
+        short g0 = (short) Genome.gene(dst, 0, 0, 0);
+        short g1 = (short) Genome.gene(dst, 0, 0, 1);
+        assertThat(Genome.geneX(g0)).isEqualTo(1); assertThat(Genome.geneY(g0)).isEqualTo(0);
+        assertThat(Genome.geneX(g1)).isEqualTo(2); assertThat(Genome.geneY(g1)).isEqualTo(0);
+    }
+
+    @Test void emptyPrevLenProducesEmptySegment() {
+        GameState s = stateWith(new int[][]{ {0, 0, 0} }, new int[][]{ {3, 3, 5} });
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            assertThat(Genome.len(dstLen, 0, j)).isEqualTo(0);
+        }
+        int base = Genome.offset(0, 0);
+        for (int k = 0; k < Genome.SLOTS_PER_GENOME; k++) {
+            assertThat(dst[base + k]).isEqualTo(Genome.EMPTY_GENE);
+        }
+    }
+
+    @Test void keepsTailIntact() {
+        // Aucun arbre mort → l'ordre est conservé tel quel.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 5}, {2, 0, 5}, {3, 0, 5} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0}, {3, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(3);
+        int[][] expected = { {1, 0}, {2, 0}, {3, 0} };
+        for (int k = 0; k < 3; k++) {
+            short g = (short) Genome.gene(dst, 0, 0, k);
+            assertThat(Genome.geneX(g)).isEqualTo(expected[k][0]);
+            assertThat(Genome.geneY(g)).isEqualTo(expected[k][1]);
+        }
+    }
+
+    @Test void emptyWhenAllTreesDead() {
+        // Tous les arbres du prev-best sont morts → segment vide.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 0}, {2, 0, 0} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(0);
+        int base = Genome.offset(0, 0);
+        for (int k = 0; k < Genome.MAX_TARGETS_PER_TROLL; k++) {
+            assertThat(dst[base + k]).isEqualTo(Genome.EMPTY_GENE);
+        }
+    }
+
+    @Test void satisfiesInvariants() {
+        // Scénario mixte : 2 trolls own + 1 opp, mélange vivants/morts dans le prev-best.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0}, {0, 5, 5}, {1, 3, 3} },
+            new int[][]{ {1, 0, 5}, {2, 0, 0}, {3, 0, 5}, {4, 4, 5}, {5, 4, 0} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0}, {2, 0}, {3, 0} });
+        putPrev(prev, prevLen, 1, new int[][]{ {5, 4}, {4, 4} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        assertThat(GenomeInvariants.check(dst, dstLen, 0)).isTrue();
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(2); // (2,0) mort, (1,0) et (3,0) gardés
+        assertThat(Genome.len(dstLen, 0, 1)).isEqualTo(1); // (5,4) mort, (4,4) gardé
+    }
+
+    @Test void doesNotTouchOtherIndividuals() {
+        // Pré-remplir le slot 1 avec un sentinel, écrire au slot 0, vérifier que le slot 1 reste intact.
+        GameState s = stateWith(
+            new int[][]{ {0, 0, 0} },
+            new int[][]{ {1, 0, 5} }
+        );
+        short[] dst = newPopBuf();
+        byte[]  dstLen = newPopLen();
+        // Sentinel au slot 1, troll 0, k=0,1 (valeurs arbitraires non-EMPTY)
+        int base1 = Genome.offset(1, 0);
+        dst[base1] = Genome.encode(4, 4);
+        dst[base1 + 1] = Genome.encode(5, 5);
+        Genome.setLen(dstLen, 1, 0, 2);
+
+        short[] prev = newPrevBuf();
+        byte[]  prevLen = newPrevLen();
+        putPrev(prev, prevLen, 0, new int[][]{ {1, 0} });
+
+        GenomeOps.initFromPrevBest(s, prev, prevLen, dst, dstLen, 0);
+
+        // Slot 0 écrit
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
+        // Slot 1 intact
+        assertThat(Genome.len(dstLen, 1, 0)).isEqualTo(2);
+        assertThat(dst[base1]).isEqualTo(Genome.encode(4, 4));
+        assertThat(dst[base1 + 1]).isEqualTo(Genome.encode(5, 5));
+    }
+}
