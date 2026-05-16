@@ -315,7 +315,11 @@ public class FileBuilder {
         }
 
         try {
-            Files.write(Paths.get(outputFile), lines, CHARSET);
+            final List<String> minified = new ArrayList<>(lines.size());
+            for (final String line : lines) {
+                minified.add(line.strip());
+            }
+            Files.write(Paths.get(outputFile), minified, CHARSET);
         } catch (final IOException e) {
             e.printStackTrace();
         }
