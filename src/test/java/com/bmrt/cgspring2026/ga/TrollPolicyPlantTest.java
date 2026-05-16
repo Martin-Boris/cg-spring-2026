@@ -74,4 +74,19 @@ class TrollPolicyPlantTest {
         assertThat(Action.type(out[0])).isEqualTo((int) ActionType.PICK);
         assertThat(Action.arg1(out[0])).isEqualTo((int) ResourceType.LEMON);
     }
+
+    @Test void phase0_moveToShackWhenFarAndWithoutFruit() {
+        GameState s = trollAt(4, 4);
+        s.shackInventory[ResourceType.APPLE] = 2;
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.APPLE));
+        Genome.setLen(lens, 0, 0, 1);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.MOVE);
+        int tx = Action.arg1(out[0]), ty = Action.arg2(out[0]);
+        int dist = Math.abs(tx - GameState.shackMeX) + Math.abs(ty - GameState.shackMeY);
+        assertThat(dist).isEqualTo(1);
+    }
 }
