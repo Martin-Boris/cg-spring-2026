@@ -121,6 +121,16 @@ class GeneticAgentTest {
         assertThat(n).isEqualTo(1);
     }
 
+    @Test void firstDecideInitsPlantCandidates() {
+        Genome.plantCandidateCount = -1;
+        GameState s = seededState();
+        GeneticAgent agent = new GeneticAgent();
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        agent.decide(s, System.nanoTime() + 100_000_000L, out);
+        assertThat(Genome.plantCandidateCount).isNotEqualTo(-1);
+        assertThat(Genome.plantCandidateCount).isGreaterThanOrEqualTo(0);
+    }
+
     @Test void geneticAgentMatchesOrBeatsGreedyOnSimpleScenario() {
         // Setup : 1 troll me, 2 arbres ; le GA doit obtenir une fitness ≥ greedy
         GameState src = seededState();

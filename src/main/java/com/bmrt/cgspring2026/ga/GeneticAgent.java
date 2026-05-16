@@ -20,6 +20,7 @@ public final class GeneticAgent {
     int lastBestIdx;
     private int lastGenCount;
     private double lastBestFitness;
+    private boolean plantCandidatesInitialized = false;
 
     public GeneticAgent() {
     }
@@ -45,6 +46,10 @@ public final class GeneticAgent {
     }
 
     public int decide(GameState state, long deadlineNs, int[] outActions) {
+        if (!plantCandidatesInitialized) {
+            Genome.initPlantCandidates();
+            plantCandidatesInitialized = true;
+        }
         // 1. Init population
         initPopulation(state);
         evaluatePopulation(state);
