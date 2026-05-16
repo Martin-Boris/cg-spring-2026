@@ -242,7 +242,8 @@ public final class GenomeOps {
         Genome.setLen(lenBuf, individuIdx, j, len - 1);
     }
 
-    private static final boolean[] seenBuf = new boolean[256 * 256]; // max grid 256x256
+    private static final boolean[] seenTargetBuf = new boolean[256 * 256];
+    private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
 
     public static void crossover(short[] srcA, byte[] lenA, int idxA,
                                  short[] srcB, byte[] lenB, int idxB,
@@ -256,7 +257,10 @@ public final class GenomeOps {
         for (int j = 0; j < GameState.MAX_TROLLS; j++) Genome.setLen(dstLen, idxDst, j, 0);
         // Reset seen[] sur la zone utilisée
         for (int y = 0; y < H; y++) {
-            for (int x = 0; x < W; x++) seenBuf[y * W + x] = false;
+            for (int x = 0; x < W; x++) {
+                seenTargetBuf[y * W + x] = false;
+                seenPlantBuf[y * W + x]  = false;
+            }
         }
         // OX par troll
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
@@ -271,9 +275,10 @@ public final class GenomeOps {
             for (int k = 0; k < cut; k++) {
                 short g = srcA[aBase + k];
                 int x = Genome.geneX(g), y = Genome.geneY(g);
+                boolean[] seen = Genome.isPlant(g) ? seenPlantBuf : seenTargetBuf;
                 int cell = y * W + x;
-                if (seenBuf[cell]) continue; // ne devrait pas arriver si parent valide, défensif
-                seenBuf[cell] = true;
+                if (seen[cell]) continue; // ne devrait pas arriver si parent valide, défensif
+                seen[cell] = true;
                 dst[dstOff + written++] = g;
             }
             // Compléter avec P2
@@ -282,9 +287,10 @@ public final class GenomeOps {
             for (int k = 0; k < lb && written < target && written < Genome.MAX_TARGETS_PER_TROLL; k++) {
                 short g = srcB[bBase + k];
                 int x = Genome.geneX(g), y = Genome.geneY(g);
+                boolean[] seen = Genome.isPlant(g) ? seenPlantBuf : seenTargetBuf;
                 int cell = y * W + x;
-                if (seenBuf[cell]) continue;
-                seenBuf[cell] = true;
+                if (seen[cell]) continue;
+                seen[cell] = true;
                 dst[dstOff + written++] = g;
             }
             Genome.setLen(dstLen, idxDst, j, written);

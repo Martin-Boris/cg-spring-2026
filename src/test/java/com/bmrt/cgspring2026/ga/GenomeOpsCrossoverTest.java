@@ -74,4 +74,16 @@ class GenomeOpsCrossoverTest {
             assertThat(len).isBetween(0, 5); // au pire 5 arbres distincts disponibles
         }
     }
+
+    @Test void crossoverPreservesTargetAndPlantOnSameCell() {
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        byte[] lens = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        Genome.setGene(buf, 0, 0, 0, Genome.makeTarget(3, 4));
+        Genome.setGene(buf, 0, 0, 1, Genome.makePlant(3, 4, com.bmrt.cgspring2026.model.TreeType.LEMON));
+        Genome.setLen(lens, 0, 0, 2);
+        java.util.SplittableRandom rng = new java.util.SplittableRandom(42);
+        GenomeOps.crossover(buf, lens, 0, buf, lens, 0, buf, lens, 1, rng);
+        assertThat(Genome.len(lens, 1, 0)).isEqualTo(2);
+    }
 }
