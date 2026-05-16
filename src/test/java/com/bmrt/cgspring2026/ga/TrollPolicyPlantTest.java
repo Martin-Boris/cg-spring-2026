@@ -164,4 +164,18 @@ class TrollPolicyPlantTest {
         TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
         assertThat(Action.type(out[0])).isEqualTo((int) ActionType.CHOP);
     }
+
+    @Test void phase1_advancesCursorWhenTreeDead() {
+        GameState s = trollAt(0, 2);
+        TrollPolicy.policyPhase[0] = 1;
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.LEMON));
+        Genome.setLen(lens, 0, 0, 1);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(TrollPolicy.cursorBuf[0]).isEqualTo(1);
+        assertThat(TrollPolicy.policyPhase[0]).isEqualTo((byte) 0);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.WAIT);
+    }
 }
