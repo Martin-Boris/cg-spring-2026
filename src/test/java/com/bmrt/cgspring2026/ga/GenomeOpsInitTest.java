@@ -38,6 +38,7 @@ class GenomeOpsInitTest {
     }
 
     @Test void emptyStateProducesEmptyIndividual() {
+        Genome.plantCandidateCount = 0;
         short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
         java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
         byte[] lenBuf = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
@@ -102,9 +103,37 @@ class GenomeOpsInitTest {
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
             int len = Genome.len(lenBuf, 0, j);
             for (int k = 0; k < len; k++) {
-                int g = Genome.gene(buf, 0, j, k) & 0xFFFF;
-                assertThat(validCells).contains(g);
+                short g = (short) Genome.gene(buf, 0, j, k);
+                if (Genome.isPlant(g)) continue;
+                int packed = ((Genome.geneX(g) & 0xFF) << 8) | (Genome.geneY(g) & 0xFF);
+                assertThat(validCells).contains(packed);
             }
         }
+    }
+
+    @Test void initRandomCanProducePlantGenes() {
+        Genome.initPlantCandidates();
+        assertThat(Genome.plantCandidateCount).isGreaterThan(0);
+
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        byte[] lens = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        SplittableRandom rng = new SplittableRandom(123);
+        GameState s = makeState(5, 2, 0);
+        int plantSeen = 0;
+        int trials = 200;
+        for (int i = 0; i < trials; i++) {
+            java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+            java.util.Arrays.fill(lens, (byte) 0);
+            GenomeOps.initRandom(s, buf, lens, 0, rng);
+            outer:
+            for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+                int len = Genome.len(lens, 0, j);
+                for (int k = 0; k < len; k++) {
+                    short g = (short) Genome.gene(buf, 0, j, k);
+                    if (Genome.isPlant(g)) { plantSeen++; break outer; }
+                }
+            }
+        }
+        assertThat(plantSeen).isBetween(50, 170);
     }
 }

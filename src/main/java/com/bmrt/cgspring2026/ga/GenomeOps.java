@@ -7,7 +7,8 @@ import java.util.SplittableRandom;
 
 public final class GenomeOps {
 
-    public static final double P_SKIP_INIT = 0.30;
+    public static final double P_SKIP_INIT  = 0.30;
+    public static final double P_PLANT_INIT = 0.30;
 
     // Scratch buffers réutilisés (jamais alloués dans le hot path après init)
     private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
@@ -61,6 +62,33 @@ public final class GenomeOps {
             int len = Genome.len(lenBuf, individuIdx, chosenTroll);
             Genome.setGene(buf, individuIdx, chosenTroll, len, shuffleBuf[i]);
             Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
+        }
+
+        // 5. Injecter gènes PLANT
+        if (Genome.plantCandidateCount > 0) {
+            for (int p = 0; p < Genome.plantCandidateCount; p++) {
+                short c = Genome.plantCandidates[p];
+                initSeenPlant[Genome.candY(c) * GameState.width + Genome.candX(c)] = false;
+            }
+            for (int k = 0; k < ownTrollsCount; k++) {
+                int trollIdx = ownTrollsBuf[k];
+                int len = Genome.len(lenBuf, individuIdx, trollIdx);
+                if (len >= Genome.MAX_TARGETS_PER_TROLL) continue;
+                if (rng.nextDouble() >= P_PLANT_INIT) continue;
+                int tries = 0;
+                while (tries < Genome.plantCandidateCount) {
+                    short c = Genome.plantCandidates[rng.nextInt(Genome.plantCandidateCount)];
+                    int cx = Genome.candX(c), cy = Genome.candY(c);
+                    if (!initSeenPlant[cy * GameState.width + cx]) {
+                        int fruit = rng.nextInt(4);
+                        Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makePlant(cx, cy, fruit));
+                        Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
+                        initSeenPlant[cy * GameState.width + cx] = true;
+                        break;
+                    }
+                    tries++;
+                }
+            }
         }
     }
 
@@ -242,6 +270,7 @@ public final class GenomeOps {
         Genome.setLen(lenBuf, individuIdx, j, len - 1);
     }
 
+    private static final boolean[] initSeenPlant  = new boolean[256 * 256];
     private static final boolean[] seenTargetBuf = new boolean[256 * 256];
     private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
 
