@@ -85,17 +85,43 @@ class GenomeOpsMutationTest {
     }
 
     @Test void runMutationDispatchesProbabilistically() {
-        // Smoke test : sur 1000 itérations, chaque opérateur doit avoir été tiré au moins une fois
         SplittableRandom rng = new SplittableRandom(42);
-        int[] counters = new int[4];
+        int[] counters = new int[5];
         for (int t = 0; t < 1000; t++) {
             counters[GenomeOps.pickMutationKind(rng)]++;
         }
-        for (int k = 0; k < 4; k++) {
-            assertThat(counters[k]).isGreaterThan(50);
+        for (int k = 0; k < 5; k++) {
+            assertThat(counters[k]).as("operator %d sampled at least once", k).isGreaterThan(30);
         }
-        // approximativement les bonnes proportions
-        assertThat(counters[0]).isBetween(300, 500); // swap-intra ~40%
-        assertThat(counters[3]).isBetween(50, 150);  // delete ~10%
+        assertThat(counters[GenomeOps.MUT_SWAP_INTRA]).isBetween(280, 420);
+        assertThat(counters[GenomeOps.MUT_DELETE]).isBetween(50, 150);
+        assertThat(counters[GenomeOps.MUT_INSERT_PLANT]).isBetween(100, 200);
+    }
+
+    @Test void pickMutationKindIncludesInsertPlant() {
+        SplittableRandom rng = new SplittableRandom(99);
+        boolean seen = false;
+        for (int i = 0; i < 1000; i++) {
+            if (GenomeOps.pickMutationKind(rng) == GenomeOps.MUT_INSERT_PLANT) { seen = true; break; }
+        }
+        assertThat(seen).isTrue();
+    }
+
+    @Test void runMutationDispatchesInsertPlant() {
+        GameState.shackMeX = 0; GameState.shackMeY = 0;
+        Genome.initPlantCandidates();
+        assertThat(Genome.plantCandidateCount).isGreaterThan(0);
+        SplittableRandom rng = new SplittableRandom(2026);
+        boolean planted = false;
+        for (int i = 0; i < 200 && !planted; i++) {
+            GenomeOps.runMutation(buf, lenBuf, 0, rng);
+            for (int j = 0; j < GameState.MAX_TROLLS && !planted; j++) {
+                int len = Genome.len(lenBuf, 0, j);
+                for (int k = 0; k < len; k++) {
+                    if (Genome.isPlant((short) Genome.gene(buf, 0, j, k))) { planted = true; break; }
+                }
+            }
+        }
+        assertThat(planted).isTrue();
     }
 }

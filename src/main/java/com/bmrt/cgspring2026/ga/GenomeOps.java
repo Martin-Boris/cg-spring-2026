@@ -179,15 +179,17 @@ public final class GenomeOps {
         }
     }
 
-    public static final double P_MUT_SWAP_INTRA = 0.40;
-    public static final double P_MUT_SWAP_INTER = 0.30;
-    public static final double P_MUT_REVERSE    = 0.20;
-    public static final double P_MUT_DELETE     = 0.10;
+    public static final double P_MUT_SWAP_INTRA   = 0.35;
+    public static final double P_MUT_SWAP_INTER   = 0.25;
+    public static final double P_MUT_REVERSE      = 0.15;
+    public static final double P_MUT_DELETE       = 0.10;
+    public static final double P_MUT_INSERT_PLANT = 0.15;
 
-    public static final int MUT_SWAP_INTRA = 0;
-    public static final int MUT_SWAP_INTER = 1;
-    public static final int MUT_REVERSE    = 2;
-    public static final int MUT_DELETE     = 3;
+    public static final int MUT_SWAP_INTRA   = 0;
+    public static final int MUT_SWAP_INTER   = 1;
+    public static final int MUT_REVERSE      = 2;
+    public static final int MUT_DELETE       = 3;
+    public static final int MUT_INSERT_PLANT = 4;
 
     public static int pickMutationKind(SplittableRandom rng) {
         double r = rng.nextDouble();
@@ -196,15 +198,18 @@ public final class GenomeOps {
         if (r < P_MUT_SWAP_INTER) return MUT_SWAP_INTER;
         r -= P_MUT_SWAP_INTER;
         if (r < P_MUT_REVERSE) return MUT_REVERSE;
-        return MUT_DELETE;
+        r -= P_MUT_REVERSE;
+        if (r < P_MUT_DELETE) return MUT_DELETE;
+        return MUT_INSERT_PLANT;
     }
 
     public static void runMutation(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
         switch (pickMutationKind(rng)) {
-            case MUT_SWAP_INTRA -> mutateSwapIntra(buf, lenBuf, individuIdx, rng);
-            case MUT_SWAP_INTER -> mutateSwapInter(buf, lenBuf, individuIdx, rng);
-            case MUT_REVERSE    -> mutateReverse  (buf, lenBuf, individuIdx, rng);
-            case MUT_DELETE     -> mutateDelete   (buf, lenBuf, individuIdx, rng);
+            case MUT_SWAP_INTRA   -> mutateSwapIntra  (buf, lenBuf, individuIdx, rng);
+            case MUT_SWAP_INTER   -> mutateSwapInter  (buf, lenBuf, individuIdx, rng);
+            case MUT_REVERSE      -> mutateReverse    (buf, lenBuf, individuIdx, rng);
+            case MUT_DELETE       -> mutateDelete     (buf, lenBuf, individuIdx, rng);
+            case MUT_INSERT_PLANT -> mutateInsertPlant(buf, lenBuf, individuIdx, rng);
             default -> throw new IllegalStateException();
         }
     }
