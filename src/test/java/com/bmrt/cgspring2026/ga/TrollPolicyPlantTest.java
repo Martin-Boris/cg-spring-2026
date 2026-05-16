@@ -117,4 +117,19 @@ class TrollPolicyPlantTest {
         assertThat(Action.arg1(out[0])).isEqualTo((int) TreeType.BANANA);
         assertThat(TrollPolicy.policyPhase[0]).isEqualTo((byte) 1);
     }
+
+    @Test void phase0_moveToTargetAfterPicking() {
+        GameState s = trollAt(2, 1);
+        s.trollInventory[0 * ResourceType.COUNT + ResourceType.PLUM] = 1;
+        s.trollCarryTotal[0] = 1;
+        short[] buf = popBuf();
+        byte[] lens = lenBuf();
+        Genome.setGene(buf, 0, 0, 0, Genome.makePlant(0, 2, TreeType.PLUM));
+        Genome.setLen(lens, 0, 0, 1);
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        TrollPolicy.fillActions(s, buf, lens, 0, TrollPolicy.cursorBuf, out);
+        assertThat(Action.type(out[0])).isEqualTo((int) ActionType.MOVE);
+        assertThat(Action.arg1(out[0])).isEqualTo(0);
+        assertThat(Action.arg2(out[0])).isEqualTo(2);
+    }
 }
