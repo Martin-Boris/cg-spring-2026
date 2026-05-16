@@ -273,6 +273,52 @@ public final class GenomeOps {
     private static final boolean[] initSeenPlant  = new boolean[256 * 256];
     private static final boolean[] seenTargetBuf = new boolean[256 * 256];
     private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
+    private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
+
+    public static void mutateInsertPlant(short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        if (Genome.plantCandidateCount == 0) return;
+        int count = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL) {
+                freeTrollsBuf[count++] = j;
+            }
+        }
+        if (count == 0) return;
+        int j = freeTrollsBuf[rng.nextInt(count)];
+        int len = Genome.len(lenBuf, individuIdx, j);
+
+        int W = GameState.width;
+        for (int p = 0; p < Genome.plantCandidateCount; p++) {
+            short c = Genome.plantCandidates[p];
+            mutSeenPlant[Genome.candY(c) * W + Genome.candX(c)] = false;
+        }
+        for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+            int tjLen = Genome.len(lenBuf, individuIdx, tj);
+            int base = Genome.offset(individuIdx, tj);
+            for (int k = 0; k < tjLen; k++) {
+                short g = buf[base + k];
+                if (Genome.isPlant(g)) {
+                    mutSeenPlant[Genome.geneY(g) * W + Genome.geneX(g)] = true;
+                }
+            }
+        }
+
+        int tries = 0;
+        while (tries < Genome.plantCandidateCount) {
+            short c = Genome.plantCandidates[rng.nextInt(Genome.plantCandidateCount)];
+            int cx = Genome.candX(c), cy = Genome.candY(c);
+            if (!mutSeenPlant[cy * W + cx]) {
+                int pos = rng.nextInt(len + 1);
+                int base = Genome.offset(individuIdx, j);
+                for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+                int fruit = rng.nextInt(4);
+                buf[base + pos] = Genome.makePlant(cx, cy, fruit);
+                Genome.setLen(lenBuf, individuIdx, j, len + 1);
+                return;
+            }
+            tries++;
+        }
+    }
 
     public static void crossover(short[] srcA, byte[] lenA, int idxA,
                                  short[] srcB, byte[] lenB, int idxB,
