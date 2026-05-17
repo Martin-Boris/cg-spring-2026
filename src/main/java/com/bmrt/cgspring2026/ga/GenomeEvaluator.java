@@ -8,7 +8,7 @@ public final class GenomeEvaluator {
 
     public static final int HORIZON = 25;
     public static final double ALPHA_WOOD_CARRY = 2.0;
-    public static final double ALPHA_FRUIT_CARRY = 2.0;
+    public static final double ALPHA_FRUIT_CARRY = 0.5;
 
     private GenomeEvaluator() {
     }
@@ -40,7 +40,7 @@ public final class GenomeEvaluator {
                 fruitCarryMe += finalState.trollInventory[base + r] & 0xFF;
         }
         return (scoreMe - scoreOpp)
-             + ALPHA_WOOD_CARRY  * woodCarryMe
-             + ALPHA_FRUIT_CARRY * fruitCarryMe;
+                + ALPHA_WOOD_CARRY * woodCarryMe
+                + ALPHA_FRUIT_CARRY * fruitCarryMe;
     }
 }

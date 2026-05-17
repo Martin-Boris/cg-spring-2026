@@ -75,7 +75,9 @@
       "Bash(mvn -q -o compile)",
       "Bash(echo \"exit=$?\")",
       "Bash(mvn -q -o test)",
-      "Bash(mvn -o test)"
+      "Bash(mvn -o test)",
+      "Bash(node *)",
+      "Bash(mvn -q test -pl .)"
     ]
   }
 }

@@ -52,7 +52,7 @@ class GenomeEvaluatorHarvestTest {
         GameState scratch = new GameState();
 
         double fit = GenomeEvaluator.evaluate(scratch, source, buf, lens, 0, actionBuf);
-        // 2 bananes en transit × ALPHA_FRUIT_CARRY(2.0) = 4.0 au minimum
+        // 2 bananes en transit × ALPHA_FRUIT_CARRY = minimum attendu
         assertThat(fit).isGreaterThanOrEqualTo(2 * GenomeEvaluator.ALPHA_FRUIT_CARRY - 1e-9);
     }
 
