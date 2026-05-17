@@ -49,6 +49,7 @@ class GenomeOpsWarmStartTest {
             s.trollPlayer[i] = (byte) tr[0];
             s.trollX[i]      = (byte) tr[1];
             s.trollY[i]      = (byte) tr[2];
+            s.trollCP[i]     = (byte) (tr[0] == 0 ? 1 : 0); // own trolls: cp=1 par défaut
         }
         for (int[] t : trees) {
             int i = s.treeCount++;

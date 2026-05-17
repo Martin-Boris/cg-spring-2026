@@ -148,6 +148,7 @@ public final class GenomeOps {
             boolean anyAssigned = false;
             for (int kT = 0; kT < ownCount; kT++) {
                 int troll = ownTrollsBuf[kT];
+                if ((state.trollCP[troll] & 0xFF) == 0) continue;
                 int bestTree = -1;
                 int bestDist = PathTable.UNREACHABLE;
                 int cx = warmCurX[troll];

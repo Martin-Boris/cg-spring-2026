@@ -94,4 +94,19 @@ class GenomeOpsCutFilterTest {
         }
         assertThat(found).isTrue();
     }
+
+    @Test void initWarm_noCutGeneWhenTrollHasNoCP() {
+        GameState s = new GameState();
+        s.trollCount = 1;
+        s.trollPlayer[0] = 0;
+        s.trollX[0] = 0; s.trollY[0] = 0;
+        s.trollCP[0] = 0;
+        s.treeCount = 1;
+        s.treeX[0] = 3; s.treeY[0] = 2; s.treeHealth[0] = 5;
+
+        short[] buf = newBuf();
+        byte[]  lens = newLen();
+        GenomeOps.initWarm(s, buf, lens, 0);
+        assertThat(hasCutGene(buf, lens, 0)).isFalse();
+    }
 }
