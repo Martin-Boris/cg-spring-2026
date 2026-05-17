@@ -14,20 +14,24 @@ public final class GreedyAgent {
 
     public static int maybeTrain(GameState s) {
         int n = countOwnTrolls(s);
-        int plum = s.shackInventory[ResourceType.PLUM];
+        if (n >= 5) return -1;
+        if (s.turn >= 200) return -1;
+
+        int plum  = s.shackInventory[ResourceType.PLUM];
         int lemon = s.shackInventory[ResourceType.LEMON];
         int apple = s.shackInventory[ResourceType.APPLE];
-        int iron = s.shackInventory[ResourceType.IRON];
+        int iron  = s.shackInventory[ResourceType.IRON];
 
-        if (plum < n + 1) return -1;
+        if (plum  < n + 1) return -1;
         if (lemon < n + 1) return -1;
-        if (apple < 1) return -1;
-        if (iron < n + 1) return -1;
 
-        int ms = maxV(plum, n, 1);
+        int ms = maxV(plum,  n, 1);
         int cc = maxV(lemon, n, 1);
-        int cp = maxV(iron, n, 1);
         int hp = maxV(apple, n, 0);
+        int cp = maxV(iron,  n, 0);
+
+        if (hp == 0 && cp == 0) return -1;
+
         return Action.train(ms, cc, hp, cp);
     }
 
