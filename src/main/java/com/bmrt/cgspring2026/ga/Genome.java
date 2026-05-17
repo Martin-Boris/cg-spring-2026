@@ -10,7 +10,11 @@ public final class Genome {
     public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
     public static final short EMPTY_GENE = -1;
     public static final short[] plantCandidates = new short[12];
-    // Bit layout: bit15=flag(PLANT=1), bits13-14=fruitType, bits8-12=x(5 bits), bits0-7=y(8 bits)
+    // Gene type dispatch (16-bit short):
+    //   bit15=1            → PLANT gene  (bits13-14=fruitType, bits8-12=x, bits0-7=y)
+    //   bit15=0, bit14=1  → HARVEST gene (bits8-12=x, bits0-7=y)
+    //   bit15=0, bit14=0  → CUT gene     (bits8-15=x, bits0-7=y; valid only for x<32 / width≤32)
+    //   all bits=1        → EMPTY_GENE
     private static final int PLANT_FLAG_MASK = 0x8000;
     private static final int HARVEST_FLAG_MASK = 0x4000;
     private static final int FRUIT_TYPE_SHIFT = 13;
