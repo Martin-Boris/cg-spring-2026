@@ -77,7 +77,8 @@
       "Bash(mvn -q -o test)",
       "Bash(mvn -o test)",
       "Bash(node *)",
-      "Bash(mvn -q test -pl .)"
+      "Bash(mvn -q test -pl .)",
+      "Bash(mvn -q -DskipTests compile)"
     ]
   }
 }

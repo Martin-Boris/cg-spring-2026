@@ -2009,10 +2009,10 @@ public static void initPlantCandidates() {
 plantCandidateCount = 0;
 int sx = GameState.shackMeX;
 int sy = GameState.shackMeY;
-for (int dx = -2; dx <= 2; dx++) {
+for (int dx = -1; dx <= 1; dx++) {
 int x = sx + dx;
 if (x < 0 || x >= GameState.width) continue;
-int yRange = 2 - Math.abs(dx);
+int yRange = 1 - Math.abs(dx);
 for (int dy = -yRange; dy <= yRange; dy++) {
 int y = sy + dy;
 if (y < 0 || y >= GameState.height) continue;

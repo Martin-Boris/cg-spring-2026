@@ -147,7 +147,7 @@ git commit -m "feat(greedy): maybeTrain — turn<200, n<5, ms+cc+min(hp|cp)"
 ### Task 2 — GeneticAgent : injection TRAIN à chaque tour
 
 **Files:**
-- Modify: `src/main/java/com/bmrt/cgspring2026/ga/GeneticAgent.java:307-315`
+- Modify: `src/main/java/com/bmrt/cgspring2026/ga/GeneticAgent.java:362-370`
 - Modify: `src/test/java/com/bmrt/cgspring2026/ga/GeneticAgentTest.java`
 
 - [ ] **Step 1 — Ajouter un test Red**
@@ -234,6 +234,7 @@ git commit -m "feat(ga): inject TRAIN every turn, not just turn 0"
 **Files:**
 - Create: `src/test/java/com/bmrt/cgspring2026/ga/GenomeOpsCutFilterTest.java`
 - Modify: `src/main/java/com/bmrt/cgspring2026/ga/GenomeOps.java:51-66`
+- Modify: `src/test/java/com/bmrt/cgspring2026/ga/GenomeOpsInitTest.java` (helper `makeState`)
 
 - [ ] **Step 1 — Créer le fichier de test avec les deux premiers tests**
 
@@ -370,19 +371,41 @@ for (int k = 0; k < ownTrollsCount; k++) {
 }
 ```
 
-- [ ] **Step 4 — Vérifier que les deux tests passent et que la suite ne régresse pas**
+- [ ] **Step 4 — Mettre à jour `GenomeOpsInitTest.makeState` pour positionner `trollCP`**
+
+Sans cette mise à jour, `totalAssignedRespectsSkipProbability` régresse : ses trolls own n'ont pas de `trollCP` positionné, donc le nouveau filtre les exclut tous → aucun gène CUT assigné → moyenne 0 (attendu ∈ [18.0, 24.0]).
+
+Dans `GenomeOpsInitTest.java`, dans la méthode `makeState` (ligne ~28), ajouter `trollCP = 1` pour chaque own troll :
+
+```java
+// AVANT
+for (int i = 0; i < ownTrolls; i++) {
+    s.trollCount++;
+    s.trollPlayer[i] = 0;
+}
+
+// APRÈS
+for (int i = 0; i < ownTrolls; i++) {
+    s.trollCount++;
+    s.trollPlayer[i] = 0;
+    s.trollCP[i] = 1;
+}
+```
+
+- [ ] **Step 5 — Vérifier que les deux tests passent et que la suite ne régresse pas**
 
 ```
 mvn test -pl . -Dtest=GenomeOpsCutFilterTest,GenomeOpsHarvestTest,GenomeOpsInitTest -q
 ```
 
-Attendu : BUILD SUCCESS. Si `GenomeOpsInitTest` échoue, vérifier que les trolls dans ses états ont `trollCP > 0`.
+Attendu : BUILD SUCCESS.
 
-- [ ] **Step 5 — Commit**
+- [ ] **Step 6 — Commit**
 
 ```
 git add src/main/java/com/bmrt/cgspring2026/ga/GenomeOps.java \
-        src/test/java/com/bmrt/cgspring2026/ga/GenomeOpsCutFilterTest.java
+        src/test/java/com/bmrt/cgspring2026/ga/GenomeOpsCutFilterTest.java \
+        src/test/java/com/bmrt/cgspring2026/ga/GenomeOpsInitTest.java
 git commit -m "feat(ga): initRandom — skip CUT genes for trolls with cp=0"
 ```
 
@@ -575,7 +598,7 @@ git commit -m "feat(ga): mutateInsertCut — exclut les trolls avec cp=0"
 
 **Files:**
 - Create: `src/test/java/com/bmrt/cgspring2026/ga/TrollPolicyCutFilterTest.java`
-- Modify: `src/main/java/com/bmrt/cgspring2026/ga/TrollPolicy.java:88-92`
+- Modify: `src/main/java/com/bmrt/cgspring2026/ga/TrollPolicy.java:117-121`
 
 - [ ] **Step 1 — Créer le fichier de test**
 
