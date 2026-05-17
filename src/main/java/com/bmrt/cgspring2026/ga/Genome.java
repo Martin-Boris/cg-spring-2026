@@ -12,11 +12,14 @@ public final class Genome {
     public static final short[] plantCandidates = new short[12];
     // Bit layout: bit15=flag(PLANT=1), bits13-14=fruitType, bits8-12=x(5 bits), bits0-7=y(8 bits)
     private static final int PLANT_FLAG_MASK = 0x8000;
+    private static final int HARVEST_FLAG_MASK = 0x4000;
     private static final int FRUIT_TYPE_SHIFT = 13;
     private static final int FRUIT_TYPE_MASK = 0x3 << FRUIT_TYPE_SHIFT;
     private static final int X_MASK = 0x1F;
     private static final int X_SHIFT = 8;
     public static int plantCandidateCount = 0;
+    public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
+    public static int harvestCandidateCount = 0;
 
     public static short encode(int x, int y) {
         return (short) (((x & 0xFF) << 8) | (y & 0xFF));
@@ -35,6 +38,24 @@ public final class Genome {
 
     public static boolean isPlant(short g) {
         return (g & PLANT_FLAG_MASK) != 0;
+    }
+
+    public static short makeHarvest(int x, int y) {
+        return (short) (HARVEST_FLAG_MASK | ((x & X_MASK) << X_SHIFT) | (y & 0xFF));
+    }
+
+    public static boolean isHarvest(short g) {
+        return (g & HARVEST_FLAG_MASK) != 0 && (g & PLANT_FLAG_MASK) == 0;
+    }
+
+    public static void initHarvestCandidates(GameState state) {
+        harvestCandidateCount = 0;
+        for (int t = 0; t < state.treeCount; t++) {
+            if ((state.treeSize[t] & 0xFF) == 4 && state.treeHealth[t] > 0) {
+                harvestCandidates[harvestCandidateCount++] =
+                    encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
+            }
+        }
     }
 
     public static int plantFruitType(short g) {
