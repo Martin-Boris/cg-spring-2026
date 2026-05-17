@@ -60,6 +60,31 @@ public final class TrollPolicy {
             if (g == Genome.EMPTY_GENE) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
             int gx = Genome.geneX(g), gy = Genome.geneY(g);
 
+            if (Genome.isHarvest(g)) {
+                int treeIdx = s.treeIndexAt(gx, gy);
+                if (treeIdx < 0 || (s.treeSize[treeIdx] & 0xFF) < 4 || s.treeHealth[treeIdx] <= 0) {
+                    cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue;
+                }
+                int fruitCarry = 0;
+                int invBase = trollIdx * ResourceType.COUNT;
+                for (int r = ResourceType.PLUM; r <= ResourceType.BANANA; r++)
+                    fruitCarry += s.trollInventory[invBase + r] & 0xFF;
+                if (fruitCarry > 0) {
+                    if (isShackAdjacent(tx, ty)) {
+                        cursor[trollIdx]++; policyPhase[trollIdx] = 0;
+                        return Action.drop(trollIdx);
+                    }
+                    return Action.move(trollIdx, closestShackAdjX(tx, ty), closestShackAdjY(tx, ty));
+                }
+                if (tx == gx && ty == gy) {
+                    if ((s.treeFruits[treeIdx] & 0xFF) == 0) {
+                        cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue;
+                    }
+                    return Action.harvest(trollIdx);
+                }
+                return Action.move(trollIdx, gx, gy);
+            }
+
             if (!Genome.isPlant(g)) {
                 if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
                 if (tx == gx && ty == gy) return Action.chop(trollIdx);
