@@ -7,27 +7,33 @@ import com.bmrt.cgspring2026.pathfinding.PathTable;
 
 public final class GreedyAgent {
 
+    private static final boolean[] treeTaken = new boolean[GameState.MAX_TREES];
+
+    private GreedyAgent() {
+    }
+
     public static int maybeTrain(GameState s) {
         int n = countOwnTrolls(s);
-        int plum  = s.shackInventory[ResourceType.PLUM];
+        int plum = s.shackInventory[ResourceType.PLUM];
         int lemon = s.shackInventory[ResourceType.LEMON];
         int apple = s.shackInventory[ResourceType.APPLE];
-        int iron  = s.shackInventory[ResourceType.IRON];
+        int iron = s.shackInventory[ResourceType.IRON];
 
-        if (plum  < n + 1) return -1;
-        if (lemon < n)     return -1;
-        if (apple < n)     return -1;
-        if (iron  < n)     return -1;
+        if (plum < n + 1) return -1;
+        if (lemon < n + 1) return -1;
+        if (apple < 1) return -1;
+        if (iron < n + 1) return -1;
 
-        int ms = maxV(plum,  n, 1);
-        int cc = maxV(lemon, n, 0);
-        int cp = maxV(iron,  n, 0);
-        return Action.train(ms, cc, 0, cp);
+        int ms = maxV(plum, n, 1);
+        int cc = maxV(lemon, n, 1);
+        int cp = maxV(iron, n, 1);
+        int hp = maxV(apple, n, 0);
+        return Action.train(ms, cc, hp, cp);
     }
 
     private static int maxV(int resource, int n, int floor) {
         int v = floor;
-        while ((long) (n + (v + 1) * (v + 1)) <= resource) v++;
+        while ((n + (long) (v + 1) * (v + 1)) <= resource) v++;
         return v;
     }
 
@@ -54,7 +60,7 @@ public final class GreedyAgent {
             for (int i = 1; i < ShackAdjacency.count; i++) {
                 int cx = ShackAdjacency.x[i] & 0xFF;
                 int cy = ShackAdjacency.y[i] & 0xFF;
-                int d  = PathTable.distance(tx, ty, cx, cy);
+                int d = PathTable.distance(tx, ty, cx, cy);
                 if (d < bestDist) {
                     bestDist = d;
                     dropX = cx;
@@ -81,8 +87,6 @@ public final class GreedyAgent {
         }
         return false;
     }
-
-    private static final boolean[] treeTaken = new boolean[GameState.MAX_TREES];
 
     public static int decide(GameState s, int[] outActions) {
         int count = 0;
@@ -118,7 +122,10 @@ public final class GreedyAgent {
             if (s.treeHealth[t] <= 0) continue;
             int d = PathTable.distance(tx, ty, s.treeX[t] & 0xFF, s.treeY[t] & 0xFF);
             if (d == PathTable.UNREACHABLE) continue;
-            if (d < bestDist) { bestDist = d; best = t; }
+            if (d < bestDist) {
+                bestDist = d;
+                best = t;
+            }
         }
         return best;
     }
@@ -139,6 +146,4 @@ public final class GreedyAgent {
         }
         return best;
     }
-
-    private GreedyAgent() {}
 }
