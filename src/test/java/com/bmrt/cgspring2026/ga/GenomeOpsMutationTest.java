@@ -86,17 +86,19 @@ class GenomeOpsMutationTest {
 
     @Test void runMutationDispatchesProbabilistically() {
         SplittableRandom rng = new SplittableRandom(42);
-        int[] counters = new int[6];
+        int[] counters = new int[7];
         for (int t = 0; t < 1000; t++) {
             counters[GenomeOps.pickMutationKind(rng)]++;
         }
-        for (int k = 0; k < 6; k++) {
+        for (int k = 0; k < 7; k++) {
             assertThat(counters[k]).as("operator %d sampled at least once", k).isGreaterThan(30);
         }
-        assertThat(counters[GenomeOps.MUT_SWAP_INTRA]).isBetween(180, 320);
+        assertThat(counters[GenomeOps.MUT_SWAP_INTRA]).isBetween(160, 280);
+        assertThat(counters[GenomeOps.MUT_SWAP_INTER]).isBetween(130, 230);
         assertThat(counters[GenomeOps.MUT_DELETE]).isBetween(50, 150);
-        assertThat(counters[GenomeOps.MUT_INSERT_PLANT]).isBetween(100, 200);
-        assertThat(counters[GenomeOps.MUT_INSERT_CUT]).isBetween(150, 250);
+        assertThat(counters[GenomeOps.MUT_INSERT_PLANT]).isBetween(80, 180);
+        assertThat(counters[GenomeOps.MUT_INSERT_CUT]).isBetween(130, 230);
+        assertThat(counters[GenomeOps.MUT_INSERT_HARVEST]).isBetween(50, 150);
     }
 
     @Test void pickMutationKindIncludesInsertPlant() {

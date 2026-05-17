@@ -208,12 +208,13 @@ public final class GenomeOps {
         }
     }
 
-    public static final double P_MUT_SWAP_INTRA   = 0.25;
-    public static final double P_MUT_SWAP_INTER   = 0.20;
-    public static final double P_MUT_REVERSE      = 0.10;
-    public static final double P_MUT_DELETE       = 0.10;
-    public static final double P_MUT_INSERT_PLANT = 0.15;
-    public static final double P_MUT_INSERT_CUT   = 0.20;
+    public static final double P_MUT_SWAP_INTRA      = 0.22;
+    public static final double P_MUT_SWAP_INTER      = 0.18;
+    public static final double P_MUT_REVERSE         = 0.09;
+    public static final double P_MUT_DELETE          = 0.09;
+    public static final double P_MUT_INSERT_PLANT    = 0.13;
+    public static final double P_MUT_INSERT_CUT      = 0.19;
+    public static final double P_MUT_INSERT_HARVEST  = 0.10;
 
     public static final int MUT_SWAP_INTRA   = 0;
     public static final int MUT_SWAP_INTER   = 1;
@@ -221,29 +222,33 @@ public final class GenomeOps {
     public static final int MUT_DELETE       = 3;
     public static final int MUT_INSERT_PLANT = 4;
     public static final int MUT_INSERT_CUT   = 5;
+    public static final int MUT_INSERT_HARVEST = 6;
 
     public static int pickMutationKind(SplittableRandom rng) {
         double r = rng.nextDouble();
-        if (r < P_MUT_SWAP_INTRA) return MUT_SWAP_INTRA;
+        if (r < P_MUT_SWAP_INTRA)   return MUT_SWAP_INTRA;
         r -= P_MUT_SWAP_INTRA;
-        if (r < P_MUT_SWAP_INTER) return MUT_SWAP_INTER;
+        if (r < P_MUT_SWAP_INTER)   return MUT_SWAP_INTER;
         r -= P_MUT_SWAP_INTER;
-        if (r < P_MUT_REVERSE) return MUT_REVERSE;
+        if (r < P_MUT_REVERSE)      return MUT_REVERSE;
         r -= P_MUT_REVERSE;
-        if (r < P_MUT_DELETE) return MUT_DELETE;
+        if (r < P_MUT_DELETE)       return MUT_DELETE;
         r -= P_MUT_DELETE;
         if (r < P_MUT_INSERT_PLANT) return MUT_INSERT_PLANT;
-        return MUT_INSERT_CUT;
+        r -= P_MUT_INSERT_PLANT;
+        if (r < P_MUT_INSERT_CUT)   return MUT_INSERT_CUT;
+        return MUT_INSERT_HARVEST;
     }
 
     public static void runMutation(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
         switch (pickMutationKind(rng)) {
-            case MUT_SWAP_INTRA   -> mutateSwapIntra  (buf, lenBuf, individuIdx, rng);
-            case MUT_SWAP_INTER   -> mutateSwapInter  (buf, lenBuf, individuIdx, rng);
-            case MUT_REVERSE      -> mutateReverse    (buf, lenBuf, individuIdx, rng);
-            case MUT_DELETE       -> mutateDelete     (buf, lenBuf, individuIdx, rng);
-            case MUT_INSERT_PLANT -> mutateInsertPlant(buf, lenBuf, individuIdx, rng);
-            case MUT_INSERT_CUT   -> mutateInsertCut  (state, buf, lenBuf, individuIdx, rng);
+            case MUT_SWAP_INTRA     -> mutateSwapIntra    (buf, lenBuf, individuIdx, rng);
+            case MUT_SWAP_INTER     -> mutateSwapInter    (buf, lenBuf, individuIdx, rng);
+            case MUT_REVERSE        -> mutateReverse      (buf, lenBuf, individuIdx, rng);
+            case MUT_DELETE         -> mutateDelete       (buf, lenBuf, individuIdx, rng);
+            case MUT_INSERT_PLANT   -> mutateInsertPlant  (buf, lenBuf, individuIdx, rng);
+            case MUT_INSERT_CUT     -> mutateInsertCut    (state, buf, lenBuf, individuIdx, rng);
+            case MUT_INSERT_HARVEST -> mutateInsertHarvest(state, buf, lenBuf, individuIdx, rng);
             default -> throw new IllegalStateException();
         }
     }
