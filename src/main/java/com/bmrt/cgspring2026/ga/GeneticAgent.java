@@ -226,6 +226,7 @@ public final class GeneticAgent {
             Genome.initPlantCandidates();
             plantCandidatesInitialized = true;
         }
+        Genome.initHarvestCandidates(state);
         // Seed déterministe par tour : élimine la divergence d'exploration tour à tour
         rng = new SplittableRandom(state.turn ^ 0x9E3779B97F4A7C15L);
         // 1. Init population
