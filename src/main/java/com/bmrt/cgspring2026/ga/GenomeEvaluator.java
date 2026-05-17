@@ -7,6 +7,7 @@ import com.bmrt.cgspring2026.simulation.Simulator;
 public final class GenomeEvaluator {
 
     public static final int HORIZON = 25;
+    public static final int TRAIN_PUSH_TURN_CUTOFF = 150;
     public static final double ALPHA_WOOD_CARRY = 2.0;
     public static final double ALPHA_FRUIT_CARRY = 0.5;
 

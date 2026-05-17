@@ -10,6 +10,7 @@ public final class GenomeOps {
     public static final double P_SKIP_INIT    = 0.30;
     public static final double P_PLANT_INIT   = 0.30;
     public static final double P_HARVEST_INIT = 0.30;
+    public static final double P_MINE_INIT    = 0.20;
 
     // Scratch buffers réutilisés (jamais alloués dans le hot path après init)
     private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
@@ -114,6 +115,35 @@ public final class GenomeOps {
                         Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makeHarvest(cx, cy));
                         Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
                         initSeenHarvest[cy * W + cx] = true;
+                        break;
+                    }
+                    tries++;
+                }
+            }
+        }
+
+        // 7. Injecter gènes MINE (si turn < cutoff)
+        if (state.turn < GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF
+            && Genome.ironCandidateCount > 0) {
+            int W = GameState.width;
+            for (int h = 0; h < Genome.ironCandidateCount; h++) {
+                short c = Genome.ironCandidates[h];
+                initSeenMine[Genome.candY(c) * W + Genome.candX(c)] = false;
+            }
+            for (int k = 0; k < ownTrollsCount; k++) {
+                int trollIdx = ownTrollsBuf[k];
+                if ((state.trollCP[trollIdx] & 0xFF) == 0) continue;
+                int len = Genome.len(lenBuf, individuIdx, trollIdx);
+                if (len >= Genome.MAX_TARGETS_PER_TROLL) continue;
+                if (rng.nextDouble() >= P_MINE_INIT) continue;
+                int tries = 0;
+                while (tries < Genome.ironCandidateCount) {
+                    short c = Genome.ironCandidates[rng.nextInt(Genome.ironCandidateCount)];
+                    int cx = Genome.candX(c), cy = Genome.candY(c);
+                    if (!initSeenMine[cy * W + cx]) {
+                        Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makeMine(cx, cy));
+                        Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
+                        initSeenMine[cy * W + cx] = true;
                         break;
                     }
                     tries++;
@@ -318,6 +348,7 @@ public final class GenomeOps {
 
     private static final boolean[] initSeenPlant   = new boolean[256 * 256];
     private static final boolean[] initSeenHarvest = new boolean[256 * 256];
+    private static final boolean[] initSeenMine    = new boolean[256 * 256];
     private static final boolean[] mutSeenHarvest  = new boolean[256 * 256];
     private static final boolean[] seenTargetBuf = new boolean[256 * 256];
     private static final boolean[] seenPlantBuf  = new boolean[256 * 256];

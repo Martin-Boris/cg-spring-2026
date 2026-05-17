@@ -1,0 +1,118 @@
+package com.bmrt.cgspring2026.ga;
+
+import com.bmrt.cgspring2026.greedy.ShackAdjacency;
+import com.bmrt.cgspring2026.model.GameState;
+import com.bmrt.cgspring2026.model.TileType;
+import com.bmrt.cgspring2026.pathfinding.PathTable;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.SplittableRandom;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class GenomeOpsMineTest {
+
+    private GameState state;
+
+    @BeforeEach void grid() {
+        String[] rows = {
+            "......",
+            ".0....",
+            "....+.",
+            "......",
+            "......"
+        };
+        GameState.height = rows.length;
+        GameState.width  = rows[0].length();
+        GameState.tiles  = new byte[GameState.width * GameState.height];
+        for (int y = 0; y < GameState.height; y++) {
+            for (int x = 0; x < GameState.width; x++) {
+                byte t = TileType.fromChar(rows[y].charAt(x));
+                GameState.tiles[y * GameState.width + x] = t;
+                if (t == TileType.SHACK_ME)  { GameState.shackMeX = x; GameState.shackMeY = y; }
+                if (t == TileType.SHACK_OPP) { GameState.shackOppX = x; GameState.shackOppY = y; }
+            }
+        }
+        PathTable.init();
+        ShackAdjacency.init();
+        Genome.initPlantCandidates();
+        Genome.initIronCandidates();
+
+        state = new GameState();
+        state.trollCount = 1;
+        state.trollPlayer[0] = 0;
+        state.trollX[0] = 1; state.trollY[0] = 0;
+        state.trollMS[0] = 2; state.trollCC[0] = 3;
+        state.trollHP[0] = 0; state.trollCP[0] = 1;
+        state.turn = 10;
+    }
+
+    @Test void initRandom_seedsMineGeneBeforeCutoff() {
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        byte[] lens = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        SplittableRandom rng = new SplittableRandom(42);
+        boolean found = false;
+        for (int attempt = 0; attempt < 50 && !found; attempt++) {
+            GenomeOps.initRandom(state, buf, lens, 0, rng);
+            for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+                int len = Genome.len(lens, 0, j);
+                for (int k = 0; k < len; k++) {
+                    if (Genome.isMine((short) Genome.gene(buf, 0, j, k))) found = true;
+                }
+            }
+        }
+        assertThat(found).isTrue();
+    }
+
+    @Test void initRandom_noMineGeneAtCutoff() {
+        state.turn = GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF;
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        byte[] lens = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        SplittableRandom rng = new SplittableRandom(7);
+        for (int i = 0; i < 30; i++) GenomeOps.initRandom(state, buf, lens, 0, rng);
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            int len = Genome.len(lens, 0, j);
+            for (int k = 0; k < len; k++) {
+                assertThat(Genome.isMine((short) Genome.gene(buf, 0, j, k))).isFalse();
+            }
+        }
+    }
+
+    @Test void initRandom_noMineGeneWhenTrollHasNoCp() {
+        state.trollCP[0] = 0;
+        short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+        byte[] lens = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+        SplittableRandom rng = new SplittableRandom(11);
+        for (int i = 0; i < 30; i++) GenomeOps.initRandom(state, buf, lens, 0, rng);
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            int len = Genome.len(lens, 0, j);
+            for (int k = 0; k < len; k++) {
+                assertThat(Genome.isMine((short) Genome.gene(buf, 0, j, k))).isFalse();
+            }
+        }
+    }
+
+    @Test void initRandom_noMineWhenNoCandidates() {
+        int saved = Genome.ironCandidateCount;
+        Genome.ironCandidateCount = 0;
+        try {
+            short[] buf = new short[Genome.POP_SIZE * Genome.SLOTS_PER_GENOME];
+            java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
+            byte[] lens = new byte[Genome.POP_SIZE * GameState.MAX_TROLLS];
+            SplittableRandom rng = new SplittableRandom(3);
+            for (int i = 0; i < 30; i++) GenomeOps.initRandom(state, buf, lens, 0, rng);
+            for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+                int len = Genome.len(lens, 0, j);
+                for (int k = 0; k < len; k++) {
+                    assertThat(Genome.isMine((short) Genome.gene(buf, 0, j, k))).isFalse();
+                }
+            }
+        } finally {
+            Genome.ironCandidateCount = saved;
+        }
+    }
+}
