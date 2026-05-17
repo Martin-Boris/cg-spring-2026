@@ -377,10 +377,11 @@ public final class GenomeOps {
     public static void mutateInsertCut(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
         // 1. Pick un troll avec de la place
         int count = 0;
-        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
-            if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL) {
+        for (int j = 0; j < state.trollCount; j++) {
+            if ((state.trollPlayer[j] & 0xFF) != 0) continue;
+            if ((state.trollCP[j] & 0xFF) == 0) continue;
+            if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL)
                 freeTrollsBuf[count++] = j;
-            }
         }
         if (count == 0) return;
         int j = freeTrollsBuf[rng.nextInt(count)];
