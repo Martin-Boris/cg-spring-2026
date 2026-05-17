@@ -228,6 +228,12 @@ public final class GenomeOps {
             for (int k = 0; k < prevLen; k++) {
                 short g = prevBuf[srcOff + k];
                 if (g == Genome.EMPTY_GENE) continue;
+                if (Genome.isMine(g)) {
+                    // Cellule IRON immuable : toujours valide
+                    dstBuf[dstOff + written] = g;
+                    written++;
+                    continue;
+                }
                 int gx = Genome.geneX(g);
                 int gy = Genome.geneY(g);
                 int t = state.treeIndexAt(gx, gy);
