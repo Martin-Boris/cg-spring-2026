@@ -240,13 +240,14 @@ public final class GenomeOps {
         }
     }
 
-    public static final double P_MUT_SWAP_INTRA      = 0.22;
-    public static final double P_MUT_SWAP_INTER      = 0.18;
-    public static final double P_MUT_REVERSE         = 0.09;
+    public static final double P_MUT_SWAP_INTRA      = 0.20;
+    public static final double P_MUT_SWAP_INTER      = 0.17;
+    public static final double P_MUT_REVERSE         = 0.08;
     public static final double P_MUT_DELETE          = 0.09;
-    public static final double P_MUT_INSERT_PLANT    = 0.13;
-    public static final double P_MUT_INSERT_CUT      = 0.19;
-    public static final double P_MUT_INSERT_HARVEST  = 0.10;
+    public static final double P_MUT_INSERT_PLANT    = 0.12;
+    public static final double P_MUT_INSERT_CUT      = 0.17;
+    public static final double P_MUT_INSERT_HARVEST  = 0.09;
+    public static final double P_MUT_INSERT_MINE     = 0.08;
 
     public static final int MUT_SWAP_INTRA   = 0;
     public static final int MUT_SWAP_INTER   = 1;
@@ -255,6 +256,7 @@ public final class GenomeOps {
     public static final int MUT_INSERT_PLANT = 4;
     public static final int MUT_INSERT_CUT   = 5;
     public static final int MUT_INSERT_HARVEST = 6;
+    public static final int MUT_INSERT_MINE  = 7;
 
     public static int pickMutationKind(SplittableRandom rng) {
         double r = rng.nextDouble();
@@ -269,7 +271,9 @@ public final class GenomeOps {
         if (r < P_MUT_INSERT_PLANT) return MUT_INSERT_PLANT;
         r -= P_MUT_INSERT_PLANT;
         if (r < P_MUT_INSERT_CUT)   return MUT_INSERT_CUT;
-        return MUT_INSERT_HARVEST;
+        r -= P_MUT_INSERT_CUT;
+        if (r < P_MUT_INSERT_HARVEST) return MUT_INSERT_HARVEST;
+        return MUT_INSERT_MINE;
     }
 
     public static void runMutation(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
@@ -281,6 +285,7 @@ public final class GenomeOps {
             case MUT_INSERT_PLANT   -> mutateInsertPlant  (buf, lenBuf, individuIdx, rng);
             case MUT_INSERT_CUT     -> mutateInsertCut    (state, buf, lenBuf, individuIdx, rng);
             case MUT_INSERT_HARVEST -> mutateInsertHarvest(state, buf, lenBuf, individuIdx, rng);
+            case MUT_INSERT_MINE    -> mutateInsertMine   (state, buf, lenBuf, individuIdx, rng);
             default -> throw new IllegalStateException();
         }
     }
@@ -350,6 +355,7 @@ public final class GenomeOps {
     private static final boolean[] initSeenHarvest = new boolean[256 * 256];
     private static final boolean[] initSeenMine    = new boolean[256 * 256];
     private static final boolean[] mutSeenHarvest  = new boolean[256 * 256];
+    private static final boolean[] mutSeenMine     = new boolean[256 * 256];
     private static final boolean[] seenTargetBuf = new boolean[256 * 256];
     private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
     private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
@@ -488,6 +494,53 @@ public final class GenomeOps {
                 int base = Genome.offset(individuIdx, j);
                 for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
                 buf[base + pos] = Genome.makeHarvest(cx, cy);
+                Genome.setLen(lenBuf, individuIdx, j, len + 1);
+                return;
+            }
+            tries++;
+        }
+    }
+
+    public static void mutateInsertMine(GameState state, short[] buf, byte[] lenBuf,
+                                        int individuIdx, SplittableRandom rng) {
+        if (state.turn >= GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF) return;
+        if (Genome.ironCandidateCount == 0) return;
+
+        int count = 0;
+        for (int j = 0; j < state.trollCount; j++) {
+            if ((state.trollPlayer[j] & 0xFF) != 0) continue;
+            if ((state.trollCP[j] & 0xFF) == 0) continue;
+            if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL)
+                freeTrollsBuf[count++] = j;
+        }
+        if (count == 0) return;
+        int j = freeTrollsBuf[rng.nextInt(count)];
+        int len = Genome.len(lenBuf, individuIdx, j);
+        int W = GameState.width;
+
+        for (int h = 0; h < Genome.ironCandidateCount; h++) {
+            short c = Genome.ironCandidates[h];
+            mutSeenMine[Genome.candY(c) * W + Genome.candX(c)] = false;
+        }
+        for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+            int tjLen = Genome.len(lenBuf, individuIdx, tj);
+            int base = Genome.offset(individuIdx, tj);
+            for (int k = 0; k < tjLen; k++) {
+                short g = buf[base + k];
+                if (Genome.isMine(g))
+                    mutSeenMine[Genome.geneY(g) * W + Genome.geneX(g)] = true;
+            }
+        }
+
+        int tries = 0;
+        while (tries < Genome.ironCandidateCount) {
+            short c = Genome.ironCandidates[rng.nextInt(Genome.ironCandidateCount)];
+            int cx = Genome.candX(c), cy = Genome.candY(c);
+            if (!mutSeenMine[cy * W + cx]) {
+                int pos = rng.nextInt(len + 1);
+                int base = Genome.offset(individuIdx, j);
+                for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+                buf[base + pos] = Genome.makeMine(cx, cy);
                 Genome.setLen(lenBuf, individuIdx, j, len + 1);
                 return;
             }
