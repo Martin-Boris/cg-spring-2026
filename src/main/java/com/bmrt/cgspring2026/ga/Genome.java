@@ -26,6 +26,9 @@ public final class Genome {
     public static int plantCandidateCount = 0;
     public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
     public static int harvestCandidateCount = 0;
+    public static final int MAX_IRON_CANDIDATES = 64;
+    public static final short[] ironCandidates = new short[MAX_IRON_CANDIDATES];
+    public static int ironCandidateCount = 0;
 
     public static short encode(int x, int y) {
         return (short) (((x & 0xFF) << 8) | (y & 0xFF));
@@ -76,6 +79,28 @@ public final class Genome {
                     encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
             }
         }
+    }
+
+    public static void initIronCandidates() {
+        ironCandidateCount = 0;
+        int W = GameState.width, H = GameState.height;
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                if (GameState.tiles[y * W + x] != TileType.IRON) continue;
+                if (!hasAdjacentGrass(x, y)) continue;
+                if (ironCandidateCount >= MAX_IRON_CANDIDATES) break;
+                ironCandidates[ironCandidateCount++] = encode(x, y);
+            }
+        }
+    }
+
+    private static boolean hasAdjacentGrass(int x, int y) {
+        int W = GameState.width, H = GameState.height;
+        if (x + 1 < W && GameState.tiles[y * W + (x + 1)] == TileType.GRASS) return true;
+        if (x - 1 >= 0 && GameState.tiles[y * W + (x - 1)] == TileType.GRASS) return true;
+        if (y + 1 < H && GameState.tiles[(y + 1) * W + x] == TileType.GRASS) return true;
+        if (y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.GRASS) return true;
+        return false;
     }
 
     public static int plantFruitType(short g) {
