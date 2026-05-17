@@ -120,6 +120,24 @@ class GeneticAgentTest {
     }
 
     @Test
+    void decideEmitsTrainAtNonZeroTurnWhenResourcesAllow() {
+        GameState s = seededState();
+        s.turn = 5;
+        s.shackInventory[ResourceType.PLUM]  = 5;
+        s.shackInventory[ResourceType.LEMON] = 5;
+        s.shackInventory[ResourceType.APPLE] = 5;
+        s.shackInventory[ResourceType.IRON]  = 5;
+        GeneticAgent agent = new GeneticAgent();
+        int[] out = new int[GameState.MAX_TROLLS + 1];
+        long deadline = System.nanoTime() + 100_000_000L;
+        int n = agent.decide(s, deadline, out);
+        boolean hasTrain = false;
+        for (int i = 0; i < n; i++)
+            if (Action.type(out[i]) == ActionType.TRAIN) { hasTrain = true; break; }
+        assertThat(hasTrain).isTrue();
+    }
+
+    @Test
     void bestFitnessIsNonDecreasingAcrossGenerations() {
         GameState s = seededState();
         GeneticAgent agent = new GeneticAgent();

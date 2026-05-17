@@ -359,14 +359,12 @@ public final class GeneticAgent {
                 prevBestLen, 0, GameState.MAX_TROLLS);
         hasPrevBest = true;
 
-        // 5. Ajouter TRAIN au tour 0
-        if (state.turn == 0) {
-            int trainAction = GreedyAgent.maybeTrain(state);
-            if (trainAction != -1) {
-                System.arraycopy(outActions, 0, outActions, 1, n);
-                outActions[0] = trainAction;
-                n++;
-            }
+        // 5. Ajouter TRAIN à chaque tour si les ressources le permettent
+        int trainAction = GreedyAgent.maybeTrain(state);
+        if (trainAction != -1) {
+            System.arraycopy(outActions, 0, outActions, 1, n);
+            outActions[0] = trainAction;
+            n++;
         }
 
         // CODE UNIQUEMENT POUR LE LOGING START
