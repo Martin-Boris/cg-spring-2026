@@ -37,6 +37,7 @@ class GeneticAgentInitWarmTest {
         s.trollCount = 1;
         s.trollPlayer[0] = 0;
         s.trollX[0] = 0; s.trollY[0] = 0;
+        s.trollCP[0] = 1;
         s.treeCount = 2;
         s.treeX[0] = 5; s.treeY[0] = 5; s.treeHealth[0] = 5;
         s.treeX[1] = 1; s.treeY[1] = 0; s.treeHealth[1] = 5;
