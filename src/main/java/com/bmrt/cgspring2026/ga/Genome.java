@@ -11,12 +11,14 @@ public final class Genome {
     public static final short EMPTY_GENE = -1;
     public static final short[] plantCandidates = new short[12];
     // Gene type dispatch (16-bit short):
-    //   bit15=1            → PLANT gene  (bits13-14=fruitType, bits8-12=x, bits0-7=y)
-    //   bit15=0, bit14=1  → HARVEST gene (bits8-12=x, bits0-7=y)
-    //   bit15=0, bit14=0  → CUT gene     (bits8-15=x, bits0-7=y; valid only for x<32 / width≤32)
-    //   all bits=1        → EMPTY_GENE
+    //   bit15=1                    → PLANT gene  (bits13-14=fruitType, bits8-12=x, bits0-7=y)
+    //   bit15=0, bit14=1           → HARVEST gene (bits8-12=x, bits0-7=y)
+    //   bit15=0, bit14=0, bit13=1  → MINE gene    (bits8-12=x, bits0-7=y)
+    //   bit15=0, bit14=0, bit13=0  → CUT gene     (bits8-12=x, bits0-7=y; valid only for x<32)
+    //   all bits=1                 → EMPTY_GENE
     private static final int PLANT_FLAG_MASK = 0x8000;
     private static final int HARVEST_FLAG_MASK = 0x4000;
+    private static final int MINE_FLAG_MASK = 0x2000;  // bit13
     private static final int FRUIT_TYPE_SHIFT = 13;
     private static final int FRUIT_TYPE_MASK = 0x3 << FRUIT_TYPE_SHIFT;
     private static final int X_MASK = 0x1F;
@@ -50,6 +52,20 @@ public final class Genome {
 
     public static boolean isHarvest(short g) {
         return (g & HARVEST_FLAG_MASK) != 0 && (g & PLANT_FLAG_MASK) == 0;
+    }
+
+    public static short makeMine(int x, int y) {
+        return (short) (MINE_FLAG_MASK | ((x & X_MASK) << X_SHIFT) | (y & 0xFF));
+    }
+
+    public static boolean isMine(short g) {
+        if (g == EMPTY_GENE) return false;
+        return (g & 0xE000) == MINE_FLAG_MASK;  // bit15=0, bit14=0, bit13=1
+    }
+
+    public static boolean isCut(short g) {
+        if (g == EMPTY_GENE) return false;
+        return (g & 0xE000) == 0;  // bit15=0, bit14=0, bit13=0
     }
 
     public static void initHarvestCandidates(GameState state) {
