@@ -10,16 +10,27 @@ public final class GenomeEvaluator {
     public static final double ALPHA_WOOD_CARRY = 2.0;
     public static final double ALPHA_FRUIT_CARRY = 0.5;
 
+    // Tampons "zéro" immuables (lus seulement) pour la surcharge cold-start.
+    private static final int[]  ZERO_CURSOR = new int[GameState.MAX_TROLLS];
+    private static final byte[] ZERO_PHASE  = new byte[GameState.MAX_TROLLS];
+
     private GenomeEvaluator() {
     }
 
     public static double evaluate(GameState scratch, GameState source,
                                   short[] popBuf, byte[] popLen, int idx,
                                   int[] actionBuf) {
+        return evaluate(scratch, source, popBuf, popLen, idx, actionBuf, ZERO_CURSOR, ZERO_PHASE);
+    }
+
+    public static double evaluate(GameState scratch, GameState source,
+                                  short[] popBuf, byte[] popLen, int idx,
+                                  int[] actionBuf,
+                                  int[] startCursor, byte[] startPhase) {
         scratch.copyFrom(source);
         int[] cursor = TrollPolicy.cursorBuf;
-        for (int j = 0; j < GameState.MAX_TROLLS; j++) cursor[j] = 0;
-        for (int j = 0; j < GameState.MAX_TROLLS; j++) TrollPolicy.policyPhase[j] = 0;
+        System.arraycopy(startCursor, 0, cursor, 0, GameState.MAX_TROLLS);
+        System.arraycopy(startPhase,  0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
         for (int t = 0; t < HORIZON; t++) {
             int n = TrollPolicy.fillActions(scratch, popBuf, popLen, idx, cursor, actionBuf);
             Simulator.tick(scratch, actionBuf, n);

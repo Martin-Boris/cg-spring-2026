@@ -55,6 +55,35 @@ public final class TrollPolicy {
         }
 
         int len = Genome.len(popLen, idx, trollIdx);
+        if (len == 0) return Action.wait(trollIdx);
+
+        // Intent rescue : si le troll porte un fruit, sauter le cursor sur le 1er gène
+        // PLANT compatible (même fruit, case de plantation libre). Évite que le cursor
+        // persisté hérite d'un gène HARVEST/CUT d'un best individu différent du tour
+        // précédent, qui finirait par drop le fruit pické pour un PLANT initial.
+        int rescueInvBase = trollIdx * ResourceType.COUNT;
+        int carriedFruitMask = 0;
+        for (int r = ResourceType.PLUM; r <= ResourceType.BANANA; r++) {
+            if ((s.trollInventory[rescueInvBase + r] & 0xFF) > 0) carriedFruitMask |= (1 << r);
+        }
+        if (carriedFruitMask != 0) {
+            for (int k = 0; k < len; k++) {
+                short g = (short) Genome.gene(popBuf, idx, trollIdx, k);
+                if (!Genome.isPlant(g)) continue;
+                if ((carriedFruitMask & (1 << Genome.plantFruitType(g))) == 0) continue;
+                if (s.treeIndexAt(Genome.geneX(g), Genome.geneY(g)) >= 0) continue;
+                cursor[trollIdx] = k;
+                policyPhase[trollIdx] = 0;
+                break;
+            }
+        }
+
+        // Wrap-around : si le cursor a dépassé la fin du plan (gènes complétés/skippés
+        // au fil des tours via le cursor persisté), on relance le plan une fois depuis 0.
+        // PICK n'avance jamais le cursor (return sans cursor++), donc on ne peut pas
+        // wrap au milieu d'un cycle PICK→PLANT — pas de régression du bug PICK→DROP.
+        boolean wrappedOnce = false;
+        while (true) {
         while (cursor[trollIdx] < len) {
             short g = (short) Genome.gene(popBuf, idx, trollIdx, cursor[trollIdx]);
             if (g == Genome.EMPTY_GENE) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
@@ -118,7 +147,12 @@ public final class TrollPolicy {
             if (tx == gx && ty == gy) return Action.chop(trollIdx);
             return Action.move(trollIdx, gx, gy);
         }
-        return Action.wait(trollIdx);
+        // Cursor >= len : tente un wrap-around unique.
+        if (wrappedOnce) return Action.wait(trollIdx);
+        cursor[trollIdx] = 0;
+        policyPhase[trollIdx] = 0;
+        wrappedOnce = true;
+        }
     }
 
     private static boolean isShackAdjacent(int x, int y) {
