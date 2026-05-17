@@ -259,6 +259,7 @@ public final class GeneticAgent {
     public int decide(GameState state, long deadlineNs, int[] outActions) {
         if (!plantCandidatesInitialized) {
             Genome.initPlantCandidates();
+            Genome.initIronCandidates();
             plantCandidatesInitialized = true;
         }
         Genome.initHarvestCandidates(state);
