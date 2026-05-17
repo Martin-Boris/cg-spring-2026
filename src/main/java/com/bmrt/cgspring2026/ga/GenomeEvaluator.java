@@ -8,6 +8,7 @@ public final class GenomeEvaluator {
 
     public static final int HORIZON = 25;
     public static final double ALPHA_WOOD_CARRY = 2.0;
+    public static final double ALPHA_FRUIT_CARRY = 2.0;
 
     private GenomeEvaluator() {
     }
@@ -30,10 +31,16 @@ public final class GenomeEvaluator {
         int scoreMe = finalState.score(0);
         int scoreOpp = finalState.score(1);
         int woodCarryMe = 0;
+        int fruitCarryMe = 0;
         for (int i = 0; i < finalState.trollCount; i++) {
             if ((finalState.trollPlayer[i] & 0xFF) != 0) continue;
-            woodCarryMe += finalState.trollInventory[i * ResourceType.COUNT + ResourceType.WOOD] & 0xFF;
+            int base = i * ResourceType.COUNT;
+            woodCarryMe += finalState.trollInventory[base + ResourceType.WOOD] & 0xFF;
+            for (int r = ResourceType.PLUM; r <= ResourceType.BANANA; r++)
+                fruitCarryMe += finalState.trollInventory[base + r] & 0xFF;
         }
-        return (scoreMe - scoreOpp) + ALPHA_WOOD_CARRY * woodCarryMe;
+        return (scoreMe - scoreOpp)
+             + ALPHA_WOOD_CARRY  * woodCarryMe
+             + ALPHA_FRUIT_CARRY * fruitCarryMe;
     }
 }
