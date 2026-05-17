@@ -115,6 +115,7 @@ public final class TrollPolicy {
             }
 
             if (!Genome.isPlant(g)) {
+                if ((s.trollCP[trollIdx] & 0xFF) == 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
                 if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
                 if (tx == gx && ty == gy) return Action.chop(trollIdx);
                 return Action.move(trollIdx, gx, gy);
