@@ -12,7 +12,7 @@ public final class GeneticAgent {
     public static final long TURN_BUDGET_NS = 44_000_000L;
     public static final long INIT_BUDGET_NS = 920_000_000L;
     public static final double P_CROSSOVER = 0.70;
-    public static final double HYSTERESIS_BONUS = 0.01;
+    public static final double HYSTERESIS_BONUS = 0.05;
     // Toggle d'instrumentation diagnostique. Mettre à false pour désactiver
     // tous les calculs de métriques (JIT élimine les branches mortes).
     public static final boolean INSTRUMENT = true;
@@ -440,11 +440,10 @@ public final class GeneticAgent {
         for (int j = 0; j < GameState.MAX_TROLLS; j++) {
             int curL = lenBuf[Genome.lenOffset(idx, j)] & 0xFF;
             int prevL = prevBestLen[j] & 0xFF;
-            int common = Math.min(curL, prevL);
-            int curBase = base + j * Genome.MAX_TARGETS_PER_TROLL;
-            int prevBase = j * Genome.MAX_TARGETS_PER_TROLL;
-            for (int k = 0; k < common; k++) {
-                if (buf[curBase + k] == prevBestBuf[prevBase + k]) matches++;
+            if (curL > 0 && prevL > 0) {
+                int curBase = base + j * Genome.MAX_TARGETS_PER_TROLL;
+                int prevBase = j * Genome.MAX_TARGETS_PER_TROLL;
+                if (buf[curBase] == prevBestBuf[prevBase]) matches++;
             }
         }
         return HYSTERESIS_BONUS * matches;
