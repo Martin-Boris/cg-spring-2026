@@ -417,7 +417,8 @@ public final class GenomeOps {
                                            int individuIdx, SplittableRandom rng) {
         if (Genome.harvestCandidateCount == 0) return;
         int count = 0;
-        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+        for (int j = 0; j < state.trollCount; j++) {
+            if ((state.trollPlayer[j] & 0xFF) != 0) continue;
             if ((state.trollHP[j] & 0xFF) > 0
                     && Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL)
                 freeTrollsBuf[count++] = j;
