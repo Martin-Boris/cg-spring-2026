@@ -7,8 +7,9 @@ import java.util.SplittableRandom;
 
 public final class GenomeOps {
 
-    public static final double P_SKIP_INIT  = 0.30;
-    public static final double P_PLANT_INIT = 0.30;
+    public static final double P_SKIP_INIT    = 0.30;
+    public static final double P_PLANT_INIT   = 0.30;
+    public static final double P_HARVEST_INIT = 0.30;
 
     // Scratch buffers réutilisés (jamais alloués dans le hot path après init)
     private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
@@ -84,6 +85,34 @@ public final class GenomeOps {
                         Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makePlant(cx, cy, fruit));
                         Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
                         initSeenPlant[cy * GameState.width + cx] = true;
+                        break;
+                    }
+                    tries++;
+                }
+            }
+        }
+
+        // 6. Injecter gènes HARVEST pour trolls avec HP > 0
+        if (Genome.harvestCandidateCount > 0) {
+            int W = GameState.width;
+            for (int h = 0; h < Genome.harvestCandidateCount; h++) {
+                short c = Genome.harvestCandidates[h];
+                initSeenHarvest[Genome.candY(c) * W + Genome.candX(c)] = false;
+            }
+            for (int k = 0; k < ownTrollsCount; k++) {
+                int trollIdx = ownTrollsBuf[k];
+                if ((state.trollHP[trollIdx] & 0xFF) == 0) continue;
+                int len = Genome.len(lenBuf, individuIdx, trollIdx);
+                if (len >= Genome.MAX_TARGETS_PER_TROLL) continue;
+                if (rng.nextDouble() >= P_HARVEST_INIT) continue;
+                int tries = 0;
+                while (tries < Genome.harvestCandidateCount) {
+                    short c = Genome.harvestCandidates[rng.nextInt(Genome.harvestCandidateCount)];
+                    int cx = Genome.candX(c), cy = Genome.candY(c);
+                    if (!initSeenHarvest[cy * W + cx]) {
+                        Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makeHarvest(cx, cy));
+                        Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
+                        initSeenHarvest[cy * W + cx] = true;
                         break;
                     }
                     tries++;
@@ -280,7 +309,9 @@ public final class GenomeOps {
         Genome.setLen(lenBuf, individuIdx, j, len - 1);
     }
 
-    private static final boolean[] initSeenPlant  = new boolean[256 * 256];
+    private static final boolean[] initSeenPlant   = new boolean[256 * 256];
+    private static final boolean[] initSeenHarvest = new boolean[256 * 256];
+    private static final boolean[] mutSeenHarvest  = new boolean[256 * 256];
     private static final boolean[] seenTargetBuf = new boolean[256 * 256];
     private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
     private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
@@ -380,6 +411,48 @@ public final class GenomeOps {
         for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
         buf[base + pos] = Genome.encode(tx, ty);
         Genome.setLen(lenBuf, individuIdx, j, len + 1);
+    }
+
+    public static void mutateInsertHarvest(GameState state, short[] buf, byte[] lenBuf,
+                                           int individuIdx, SplittableRandom rng) {
+        if (Genome.harvestCandidateCount == 0) return;
+        int count = 0;
+        for (int j = 0; j < GameState.MAX_TROLLS; j++) {
+            if ((state.trollHP[j] & 0xFF) > 0
+                    && Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL)
+                freeTrollsBuf[count++] = j;
+        }
+        if (count == 0) return;
+        int j = freeTrollsBuf[rng.nextInt(count)];
+        int len = Genome.len(lenBuf, individuIdx, j);
+        int W = GameState.width;
+        for (int h = 0; h < Genome.harvestCandidateCount; h++) {
+            short c = Genome.harvestCandidates[h];
+            mutSeenHarvest[Genome.candY(c) * W + Genome.candX(c)] = false;
+        }
+        for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+            int tjLen = Genome.len(lenBuf, individuIdx, tj);
+            int base = Genome.offset(individuIdx, tj);
+            for (int k = 0; k < tjLen; k++) {
+                short g = buf[base + k];
+                if (Genome.isHarvest(g))
+                    mutSeenHarvest[Genome.geneY(g) * W + Genome.geneX(g)] = true;
+            }
+        }
+        int tries = 0;
+        while (tries < Genome.harvestCandidateCount) {
+            short c = Genome.harvestCandidates[rng.nextInt(Genome.harvestCandidateCount)];
+            int cx = Genome.candX(c), cy = Genome.candY(c);
+            if (!mutSeenHarvest[cy * W + cx]) {
+                int pos = rng.nextInt(len + 1);
+                int base = Genome.offset(individuIdx, j);
+                for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+                buf[base + pos] = Genome.makeHarvest(cx, cy);
+                Genome.setLen(lenBuf, individuIdx, j, len + 1);
+                return;
+            }
+            tries++;
+        }
     }
 
     public static void crossover(short[] srcA, byte[] lenA, int idxA,
