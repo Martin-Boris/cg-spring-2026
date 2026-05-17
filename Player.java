@@ -603,18 +603,19 @@ private GreedyAgent() {
 }
 public static int maybeTrain(GameState s) {
 int n = countOwnTrolls(s);
-int plum = s.shackInventory[ResourceType.PLUM];
+if (n >= 5) return -1;
+if (s.turn >= 200) return -1;
+int plum  = s.shackInventory[ResourceType.PLUM];
 int lemon = s.shackInventory[ResourceType.LEMON];
 int apple = s.shackInventory[ResourceType.APPLE];
-int iron = s.shackInventory[ResourceType.IRON];
-if (plum < n + 1) return -1;
+int iron  = s.shackInventory[ResourceType.IRON];
+if (plum  < n + 1) return -1;
 if (lemon < n + 1) return -1;
-if (apple < 1) return -1;
-if (iron < n + 1) return -1;
-int ms = maxV(plum, n, 1);
+int ms = maxV(plum,  n, 1);
 int cc = maxV(lemon, n, 1);
-int cp = maxV(iron, n, 1);
 int hp = maxV(apple, n, 0);
+int cp = maxV(iron,  n, 0);
+if (hp == 0 && cp == 0) return -1;
 return Action.train(ms, cc, hp, cp);
 }
 private static int maxV(int resource, int n, int floor) {
@@ -1313,7 +1314,32 @@ return Action.harvest(trollIdx);
 }
 return Action.move(trollIdx, gx, gy);
 }
-if (!Genome.isPlant(g)) {
+if (Genome.isMine(g)) {
+if (GameState.tileAt(gx, gy) != TileType.IRON) {
+cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue;
+}
+if ((s.trollCP[trollIdx] & 0xFF) == 0) {
+cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue;
+}
+int cc = s.trollCC[trollIdx] & 0xFF;
+int carryTotal = s.trollCarryTotal[trollIdx];
+if (carryTotal >= cc) {
+if (isShackAdjacent(tx, ty)) return Action.drop(trollIdx);
+return Action.move(trollIdx, closestShackAdjX(tx, ty), closestShackAdjY(tx, ty));
+}
+if (isAdjacentToCell(tx, ty, gx, gy)) {
+int cp = s.trollCP[trollIdx] & 0xFF;
+int gain = Math.min(cp, cc - carryTotal);
+if (carryTotal + gain >= cc) {
+cursor[trollIdx]++; policyPhase[trollIdx] = 0;
+}
+return Action.mine(trollIdx);
+}
+int[] adj = closestGrassAdjToIron(tx, ty, gx, gy);
+return Action.move(trollIdx, adj[0], adj[1]);
+}
+if (Genome.isCut(g)) {
+if ((s.trollCP[trollIdx] & 0xFF) == 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
 if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
 if (tx == gx && ty == gy) return Action.chop(trollIdx);
 return Action.move(trollIdx, gx, gy);
@@ -1356,6 +1382,24 @@ return false;
 }
 private static int closestShackAdjX(int x, int y) { return closestShackAdj(x, y, true); }
 private static int closestShackAdjY(int x, int y) { return closestShackAdj(x, y, false); }
+private static boolean isAdjacentToCell(int x, int y, int targetX, int targetY) {
+return Math.abs(x - targetX) + Math.abs(y - targetY) == 1;
+}
+private static int[] closestGrassAdjToIron(int fromX, int fromY, int ix, int iy) {
+int bestX = ix, bestY = iy, bestD = PathTable.UNREACHABLE;
+int W = GameState.width, H = GameState.height;
+int[] dx = {1, -1, 0, 0};
+int[] dy = {0, 0, 1, -1};
+for (int k = 0; k < 4; k++) {
+int nx = ix + dx[k], ny = iy + dy[k];
+if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+if (GameState.tileAt(nx, ny) != TileType.GRASS) continue;
+int d = PathTable.distance(fromX, fromY, nx, ny);
+if (d == PathTable.UNREACHABLE) continue;
+if (d < bestD) { bestD = d; bestX = nx; bestY = ny; }
+}
+return new int[]{bestX, bestY};
+}
 private static int closestShackAdj(int x, int y, boolean returnX) {
 int bestX = ShackAdjacency.x[0] & 0xFF;
 int bestY = ShackAdjacency.y[0] & 0xFF;
@@ -1409,6 +1453,7 @@ private static class GenomeOps {
 public static final double P_SKIP_INIT    = 0.30;
 public static final double P_PLANT_INIT   = 0.30;
 public static final double P_HARVEST_INIT = 0.30;
+public static final double P_MINE_INIT    = 0.20;
 private static final short[] shuffleBuf      = new short[GameState.MAX_TREES];
 private static final int[]   ownTrollsBuf    = new int[GameState.MAX_TROLLS];
 private static final int[]   freeTrollsBuf   = new int[GameState.MAX_TROLLS];
@@ -1441,6 +1486,7 @@ if (rng.nextDouble() < P_SKIP_INIT) continue;
 int freeCount = 0;
 for (int k = 0; k < ownTrollsCount; k++) {
 int trollIdx = ownTrollsBuf[k];
+if ((state.trollCP[trollIdx] & 0xFF) == 0) continue;
 if (Genome.len(lenBuf, individuIdx, trollIdx) < Genome.MAX_TARGETS_PER_TROLL) {
 freeTrollsBuf[freeCount++] = trollIdx;
 }
@@ -1502,6 +1548,33 @@ tries++;
 }
 }
 }
+if (state.turn < GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF
+&& Genome.ironCandidateCount > 0) {
+int W = GameState.width;
+for (int h = 0; h < Genome.ironCandidateCount; h++) {
+short c = Genome.ironCandidates[h];
+initSeenMine[Genome.candY(c) * W + Genome.candX(c)] = false;
+}
+for (int k = 0; k < ownTrollsCount; k++) {
+int trollIdx = ownTrollsBuf[k];
+if ((state.trollCP[trollIdx] & 0xFF) == 0) continue;
+int len = Genome.len(lenBuf, individuIdx, trollIdx);
+if (len >= Genome.MAX_TARGETS_PER_TROLL) continue;
+if (rng.nextDouble() >= P_MINE_INIT) continue;
+int tries = 0;
+while (tries < Genome.ironCandidateCount) {
+short c = Genome.ironCandidates[rng.nextInt(Genome.ironCandidateCount)];
+int cx = Genome.candX(c), cy = Genome.candY(c);
+if (!initSeenMine[cy * W + cx]) {
+Genome.setGene(buf, individuIdx, trollIdx, len, Genome.makeMine(cx, cy));
+Genome.setLen(lenBuf, individuIdx, trollIdx, len + 1);
+initSeenMine[cy * W + cx] = true;
+break;
+}
+tries++;
+}
+}
+}
 }
 public static void initWarm(GameState state, short[] buf, byte[] lenBuf, int individuIdx) {
 int base = Genome.offset(individuIdx, 0);
@@ -1522,6 +1595,7 @@ for (int kLayer = 0; kLayer < Genome.MAX_TARGETS_PER_TROLL; kLayer++) {
 boolean anyAssigned = false;
 for (int kT = 0; kT < ownCount; kT++) {
 int troll = ownTrollsBuf[kT];
+if ((state.trollCP[troll] & 0xFF) == 0) continue;
 int bestTree = -1;
 int bestDist = PathTable.UNREACHABLE;
 int cx = warmCurX[troll];
@@ -1567,6 +1641,11 @@ int dstOff = Genome.offset(individuIdx, j);
 for (int k = 0; k < prevLen; k++) {
 short g = prevBuf[srcOff + k];
 if (g == Genome.EMPTY_GENE) continue;
+if (Genome.isMine(g)) {
+dstBuf[dstOff + written] = g;
+written++;
+continue;
+}
 int gx = Genome.geneX(g);
 int gy = Genome.geneY(g);
 int t = state.treeIndexAt(gx, gy);
@@ -1578,13 +1657,14 @@ written++;
 Genome.setLen(dstLenBuf, individuIdx, j, written);
 }
 }
-public static final double P_MUT_SWAP_INTRA      = 0.22;
-public static final double P_MUT_SWAP_INTER      = 0.18;
-public static final double P_MUT_REVERSE         = 0.09;
+public static final double P_MUT_SWAP_INTRA      = 0.20;
+public static final double P_MUT_SWAP_INTER      = 0.17;
+public static final double P_MUT_REVERSE         = 0.08;
 public static final double P_MUT_DELETE          = 0.09;
-public static final double P_MUT_INSERT_PLANT    = 0.13;
-public static final double P_MUT_INSERT_CUT      = 0.19;
-public static final double P_MUT_INSERT_HARVEST  = 0.10;
+public static final double P_MUT_INSERT_PLANT    = 0.12;
+public static final double P_MUT_INSERT_CUT      = 0.17;
+public static final double P_MUT_INSERT_HARVEST  = 0.09;
+public static final double P_MUT_INSERT_MINE     = 0.08;
 public static final int MUT_SWAP_INTRA   = 0;
 public static final int MUT_SWAP_INTER   = 1;
 public static final int MUT_REVERSE      = 2;
@@ -1592,6 +1672,7 @@ public static final int MUT_DELETE       = 3;
 public static final int MUT_INSERT_PLANT = 4;
 public static final int MUT_INSERT_CUT   = 5;
 public static final int MUT_INSERT_HARVEST = 6;
+public static final int MUT_INSERT_MINE  = 7;
 public static int pickMutationKind(SplittableRandom rng) {
 double r = rng.nextDouble();
 if (r < P_MUT_SWAP_INTRA)   return MUT_SWAP_INTRA;
@@ -1605,7 +1686,9 @@ r -= P_MUT_DELETE;
 if (r < P_MUT_INSERT_PLANT) return MUT_INSERT_PLANT;
 r -= P_MUT_INSERT_PLANT;
 if (r < P_MUT_INSERT_CUT)   return MUT_INSERT_CUT;
-return MUT_INSERT_HARVEST;
+r -= P_MUT_INSERT_CUT;
+if (r < P_MUT_INSERT_HARVEST) return MUT_INSERT_HARVEST;
+return MUT_INSERT_MINE;
 }
 public static void runMutation(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
 switch (pickMutationKind(rng)) {
@@ -1616,6 +1699,7 @@ case MUT_DELETE         -> mutateDelete       (buf, lenBuf, individuIdx, rng);
 case MUT_INSERT_PLANT   -> mutateInsertPlant  (buf, lenBuf, individuIdx, rng);
 case MUT_INSERT_CUT     -> mutateInsertCut    (state, buf, lenBuf, individuIdx, rng);
 case MUT_INSERT_HARVEST -> mutateInsertHarvest(state, buf, lenBuf, individuIdx, rng);
+case MUT_INSERT_MINE    -> mutateInsertMine   (state, buf, lenBuf, individuIdx, rng);
 default -> throw new IllegalStateException();
 }
 }
@@ -1676,7 +1760,9 @@ Genome.setLen(lenBuf, individuIdx, j, len - 1);
 }
 private static final boolean[] initSeenPlant   = new boolean[256 * 256];
 private static final boolean[] initSeenHarvest = new boolean[256 * 256];
+private static final boolean[] initSeenMine    = new boolean[256 * 256];
 private static final boolean[] mutSeenHarvest  = new boolean[256 * 256];
+private static final boolean[] mutSeenMine     = new boolean[256 * 256];
 private static final boolean[] seenTargetBuf = new boolean[256 * 256];
 private static final boolean[] seenPlantBuf  = new boolean[256 * 256];
 private static final boolean[] mutSeenPlant  = new boolean[256 * 256];
@@ -1726,10 +1812,11 @@ tries++;
 }
 public static void mutateInsertCut(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
 int count = 0;
-for (int j = 0; j < GameState.MAX_TROLLS; j++) {
-if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL) {
+for (int j = 0; j < state.trollCount; j++) {
+if ((state.trollPlayer[j] & 0xFF) != 0) continue;
+if ((state.trollCP[j] & 0xFF) == 0) continue;
+if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL)
 freeTrollsBuf[count++] = j;
-}
 }
 if (count == 0) return;
 int j = freeTrollsBuf[rng.nextInt(count)];
@@ -1798,6 +1885,49 @@ int pos = rng.nextInt(len + 1);
 int base = Genome.offset(individuIdx, j);
 for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
 buf[base + pos] = Genome.makeHarvest(cx, cy);
+Genome.setLen(lenBuf, individuIdx, j, len + 1);
+return;
+}
+tries++;
+}
+}
+public static void mutateInsertMine(GameState state, short[] buf, byte[] lenBuf,
+int individuIdx, SplittableRandom rng) {
+if (state.turn >= GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF) return;
+if (Genome.ironCandidateCount == 0) return;
+int count = 0;
+for (int j = 0; j < state.trollCount; j++) {
+if ((state.trollPlayer[j] & 0xFF) != 0) continue;
+if ((state.trollCP[j] & 0xFF) == 0) continue;
+if (Genome.len(lenBuf, individuIdx, j) < Genome.MAX_TARGETS_PER_TROLL)
+freeTrollsBuf[count++] = j;
+}
+if (count == 0) return;
+int j = freeTrollsBuf[rng.nextInt(count)];
+int len = Genome.len(lenBuf, individuIdx, j);
+int W = GameState.width;
+for (int h = 0; h < Genome.ironCandidateCount; h++) {
+short c = Genome.ironCandidates[h];
+mutSeenMine[Genome.candY(c) * W + Genome.candX(c)] = false;
+}
+for (int tj = 0; tj < GameState.MAX_TROLLS; tj++) {
+int tjLen = Genome.len(lenBuf, individuIdx, tj);
+int base = Genome.offset(individuIdx, tj);
+for (int k = 0; k < tjLen; k++) {
+short g = buf[base + k];
+if (Genome.isMine(g))
+mutSeenMine[Genome.geneY(g) * W + Genome.geneX(g)] = true;
+}
+}
+int tries = 0;
+while (tries < Genome.ironCandidateCount) {
+short c = Genome.ironCandidates[rng.nextInt(Genome.ironCandidateCount)];
+int cx = Genome.candX(c), cy = Genome.candY(c);
+if (!mutSeenMine[cy * W + cx]) {
+int pos = rng.nextInt(len + 1);
+int base = Genome.offset(individuIdx, j);
+for (int k = len; k > pos; k--) buf[base + k] = buf[base + k - 1];
+buf[base + pos] = Genome.makeMine(cx, cy);
 Genome.setLen(lenBuf, individuIdx, j, len + 1);
 return;
 }
@@ -1891,8 +2021,15 @@ return true;
 }
 private static class GenomeEvaluator {
 public static final int HORIZON = 25;
+public static final int TRAIN_PUSH_TURN_CUTOFF = 150;
+public static final int    TRAIN_PUSH_TROLL_CAP = 5;
 public static final double ALPHA_WOOD_CARRY = 2.0;
 public static final double ALPHA_FRUIT_CARRY = 0.5;
+public static final double ALPHA_IRON_CARRY     = 0.5;
+public static final double ALPHA_TRAIN_PUSH     = 0.5;
+private static final int[] TRAIN_RESOURCES = {
+ResourceType.PLUM, ResourceType.LEMON, ResourceType.APPLE, ResourceType.IRON
+};
 private static final int[]  ZERO_CURSOR = new int[GameState.MAX_TROLLS];
 private static final byte[] ZERO_PHASE  = new byte[GameState.MAX_TROLLS];
 private GenomeEvaluator() {
@@ -1917,20 +2054,34 @@ Simulator.tick(scratch, actionBuf, n);
 return fitness(scratch);
 }
 private static double fitness(GameState finalState) {
-int scoreMe = finalState.score(0);
+int scoreMe  = finalState.score(0);
 int scoreOpp = finalState.score(1);
-int woodCarryMe = 0;
+int woodCarryMe  = 0;
 int fruitCarryMe = 0;
+int ironCarryMe  = 0;
+int ownTrolls = 0;
 for (int i = 0; i < finalState.trollCount; i++) {
 if ((finalState.trollPlayer[i] & 0xFF) != 0) continue;
+ownTrolls++;
 int base = i * ResourceType.COUNT;
 woodCarryMe += finalState.trollInventory[base + ResourceType.WOOD] & 0xFF;
+ironCarryMe += finalState.trollInventory[base + ResourceType.IRON] & 0xFF;
 for (int r = ResourceType.PLUM; r <= ResourceType.BANANA; r++)
 fruitCarryMe += finalState.trollInventory[base + r] & 0xFF;
 }
+double trainPush = 0.0;
+if (finalState.turn < TRAIN_PUSH_TURN_CUTOFF && ownTrolls < TRAIN_PUSH_TROLL_CAP) {
+int target = ownTrolls + 1;
+for (int k = 0; k < TRAIN_RESOURCES.length; k++) {
+int stock = finalState.shackInventory[TRAIN_RESOURCES[k]];
+trainPush += Math.min(stock, target);
+}
+}
 return (scoreMe - scoreOpp)
-+ ALPHA_WOOD_CARRY * woodCarryMe
-+ ALPHA_FRUIT_CARRY * fruitCarryMe;
++ ALPHA_WOOD_CARRY  * woodCarryMe
++ ALPHA_FRUIT_CARRY * fruitCarryMe
++ ALPHA_IRON_CARRY  * ironCarryMe
++ ALPHA_TRAIN_PUSH  * trainPush;
 }
 }
 private static class Genome {
@@ -1941,6 +2092,7 @@ public static final short EMPTY_GENE = -1;
 public static final short[] plantCandidates = new short[12];
 private static final int PLANT_FLAG_MASK = 0x8000;
 private static final int HARVEST_FLAG_MASK = 0x4000;
+private static final int MINE_FLAG_MASK = 0x2000;  // bit13
 private static final int FRUIT_TYPE_SHIFT = 13;
 private static final int FRUIT_TYPE_MASK = 0x3 << FRUIT_TYPE_SHIFT;
 private static final int X_MASK = 0x1F;
@@ -1948,6 +2100,9 @@ private static final int X_SHIFT = 8;
 public static int plantCandidateCount = 0;
 public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
 public static int harvestCandidateCount = 0;
+public static final int MAX_IRON_CANDIDATES = 64;
+public static final short[] ironCandidates = new short[MAX_IRON_CANDIDATES];
+public static int ironCandidateCount = 0;
 public static short encode(int x, int y) {
 return (short) (((x & 0xFF) << 8) | (y & 0xFF));
 }
@@ -1969,6 +2124,17 @@ return (short) (HARVEST_FLAG_MASK | ((x & X_MASK) << X_SHIFT) | (y & 0xFF));
 public static boolean isHarvest(short g) {
 return (g & HARVEST_FLAG_MASK) != 0 && (g & PLANT_FLAG_MASK) == 0;
 }
+public static short makeMine(int x, int y) {
+return (short) (MINE_FLAG_MASK | ((x & X_MASK) << X_SHIFT) | (y & 0xFF));
+}
+public static boolean isMine(short g) {
+if (g == EMPTY_GENE) return false;
+return (g & 0xE000) == MINE_FLAG_MASK;  // bit15=0, bit14=0, bit13=1
+}
+public static boolean isCut(short g) {
+if (g == EMPTY_GENE) return false;
+return (g & 0xE000) == 0;  // bit15=0, bit14=0, bit13=0
+}
 public static void initHarvestCandidates(GameState state) {
 harvestCandidateCount = 0;
 for (int t = 0; t < state.treeCount; t++) {
@@ -1977,6 +2143,26 @@ harvestCandidates[harvestCandidateCount++] =
 encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
 }
 }
+}
+public static void initIronCandidates() {
+ironCandidateCount = 0;
+int W = GameState.width, H = GameState.height;
+for (int y = 0; y < H; y++) {
+for (int x = 0; x < W; x++) {
+if (GameState.tiles[y * W + x] != TileType.IRON) continue;
+if (!hasAdjacentGrass(x, y)) continue;
+if (ironCandidateCount >= MAX_IRON_CANDIDATES) break;
+ironCandidates[ironCandidateCount++] = encode(x, y);
+}
+}
+}
+private static boolean hasAdjacentGrass(int x, int y) {
+int W = GameState.width, H = GameState.height;
+if (x + 1 < W && GameState.tiles[y * W + (x + 1)] == TileType.GRASS) return true;
+if (x - 1 >= 0 && GameState.tiles[y * W + (x - 1)] == TileType.GRASS) return true;
+if (y + 1 < H && GameState.tiles[(y + 1) * W + x] == TileType.GRASS) return true;
+if (y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.GRASS) return true;
+return false;
 }
 public static int plantFruitType(short g) {
 return (g & FRUIT_TYPE_MASK) >>> FRUIT_TYPE_SHIFT;
@@ -2239,6 +2425,7 @@ return count;
 public int decide(GameState state, long deadlineNs, int[] outActions) {
 if (!plantCandidatesInitialized) {
 Genome.initPlantCandidates();
+Genome.initIronCandidates();
 plantCandidatesInitialized = true;
 }
 Genome.initHarvestCandidates(state);
@@ -2306,13 +2493,11 @@ prevBestBuf, 0, Genome.SLOTS_PER_GENOME);
 System.arraycopy(pop.curLen, Genome.lenOffset(lastBestIdx, 0),
 prevBestLen, 0, GameState.MAX_TROLLS);
 hasPrevBest = true;
-if (state.turn == 0) {
 int trainAction = GreedyAgent.maybeTrain(state);
 if (trainAction != -1) {
 System.arraycopy(outActions, 0, outActions, 1, n);
 outActions[0] = trainAction;
 n++;
-}
 }
 System.arraycopy(outActions, 0, prevOutActions, 0, n);
 prevOutCount = n;
