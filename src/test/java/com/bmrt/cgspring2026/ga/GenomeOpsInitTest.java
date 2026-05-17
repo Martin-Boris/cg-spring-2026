@@ -28,6 +28,7 @@ class GenomeOpsInitTest {
         for (int i = 0; i < ownTrolls; i++) {
             s.trollCount++;
             s.trollPlayer[i] = 0;
+            s.trollCP[i] = 1;
         }
         for (int i = 0; i < oppTrolls; i++) {
             int idx = ownTrolls + i;

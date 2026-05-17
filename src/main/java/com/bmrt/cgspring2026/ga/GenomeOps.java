@@ -54,6 +54,7 @@ public final class GenomeOps {
             int freeCount = 0;
             for (int k = 0; k < ownTrollsCount; k++) {
                 int trollIdx = ownTrollsBuf[k];
+                if ((state.trollCP[trollIdx] & 0xFF) == 0) continue;
                 if (Genome.len(lenBuf, individuIdx, trollIdx) < Genome.MAX_TARGETS_PER_TROLL) {
                     freeTrollsBuf[freeCount++] = trollIdx;
                 }
