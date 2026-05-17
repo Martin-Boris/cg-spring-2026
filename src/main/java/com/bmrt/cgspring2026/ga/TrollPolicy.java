@@ -5,6 +5,7 @@ import com.bmrt.cgspring2026.greedy.GreedyAgent;
 import com.bmrt.cgspring2026.greedy.ShackAdjacency;
 import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.model.ResourceType;
+import com.bmrt.cgspring2026.model.TileType;
 import com.bmrt.cgspring2026.pathfinding.PathTable;
 
 public final class TrollPolicy {
@@ -114,7 +115,32 @@ public final class TrollPolicy {
                 return Action.move(trollIdx, gx, gy);
             }
 
-            if (!Genome.isPlant(g)) {
+            if (Genome.isMine(g)) {
+                if (GameState.tileAt(gx, gy) != TileType.IRON) {
+                    cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue;
+                }
+                if ((s.trollCP[trollIdx] & 0xFF) == 0) {
+                    cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue;
+                }
+                int cc = s.trollCC[trollIdx] & 0xFF;
+                int carryTotal = s.trollCarryTotal[trollIdx];
+                if (carryTotal >= cc) {
+                    if (isShackAdjacent(tx, ty)) return Action.drop(trollIdx);
+                    return Action.move(trollIdx, closestShackAdjX(tx, ty), closestShackAdjY(tx, ty));
+                }
+                if (isAdjacentToCell(tx, ty, gx, gy)) {
+                    int cp = s.trollCP[trollIdx] & 0xFF;
+                    int gain = Math.min(cp, cc - carryTotal);
+                    if (carryTotal + gain >= cc) {
+                        cursor[trollIdx]++; policyPhase[trollIdx] = 0;
+                    }
+                    return Action.mine(trollIdx);
+                }
+                int[] adj = closestGrassAdjToIron(tx, ty, gx, gy);
+                return Action.move(trollIdx, adj[0], adj[1]);
+            }
+
+            if (Genome.isCut(g)) {
                 if ((s.trollCP[trollIdx] & 0xFF) == 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
                 if (s.treeIndexAt(gx, gy) < 0) { cursor[trollIdx]++; policyPhase[trollIdx] = 0; continue; }
                 if (tx == gx && ty == gy) return Action.chop(trollIdx);
@@ -165,6 +191,26 @@ public final class TrollPolicy {
 
     private static int closestShackAdjX(int x, int y) { return closestShackAdj(x, y, true); }
     private static int closestShackAdjY(int x, int y) { return closestShackAdj(x, y, false); }
+
+    private static boolean isAdjacentToCell(int x, int y, int targetX, int targetY) {
+        return Math.abs(x - targetX) + Math.abs(y - targetY) == 1;
+    }
+
+    private static int[] closestGrassAdjToIron(int fromX, int fromY, int ix, int iy) {
+        int bestX = ix, bestY = iy, bestD = PathTable.UNREACHABLE;
+        int W = GameState.width, H = GameState.height;
+        int[] dx = {1, -1, 0, 0};
+        int[] dy = {0, 0, 1, -1};
+        for (int k = 0; k < 4; k++) {
+            int nx = ix + dx[k], ny = iy + dy[k];
+            if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+            if (GameState.tileAt(nx, ny) != TileType.GRASS) continue;
+            int d = PathTable.distance(fromX, fromY, nx, ny);
+            if (d == PathTable.UNREACHABLE) continue;
+            if (d < bestD) { bestD = d; bestX = nx; bestY = ny; }
+        }
+        return new int[]{bestX, bestY};
+    }
 
     private static int closestShackAdj(int x, int y, boolean returnX) {
         int bestX = ShackAdjacency.x[0] & 0xFF;
