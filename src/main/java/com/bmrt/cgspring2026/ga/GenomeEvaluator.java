@@ -6,21 +6,21 @@ import com.bmrt.cgspring2026.simulation.Simulator;
 
 public final class GenomeEvaluator {
 
-    public static final int HORIZON = 25;
+    public static final int HORIZON = 15;
     public static final int TRAIN_PUSH_TURN_CUTOFF = 150;
-    public static final int    TRAIN_PUSH_TROLL_CAP = 5;
+    public static final int TRAIN_PUSH_TROLL_CAP = 5;
     public static final double ALPHA_WOOD_CARRY = 2.0;
     public static final double ALPHA_FRUIT_CARRY = 0.5;
-    public static final double ALPHA_IRON_CARRY     = 0.5;
-    public static final double ALPHA_TRAIN_PUSH     = 0.5;
+    public static final double ALPHA_IRON_CARRY = 0.5;
+    public static final double ALPHA_TRAIN_PUSH = 1;
 
     private static final int[] TRAIN_RESOURCES = {
-        ResourceType.PLUM, ResourceType.LEMON, ResourceType.APPLE, ResourceType.IRON
+            ResourceType.PLUM, ResourceType.LEMON, ResourceType.APPLE, ResourceType.IRON
     };
 
     // Tampons "zéro" immuables (lus seulement) pour la surcharge cold-start.
-    private static final int[]  ZERO_CURSOR = new int[GameState.MAX_TROLLS];
-    private static final byte[] ZERO_PHASE  = new byte[GameState.MAX_TROLLS];
+    private static final int[] ZERO_CURSOR = new int[GameState.MAX_TROLLS];
+    private static final byte[] ZERO_PHASE = new byte[GameState.MAX_TROLLS];
 
     private GenomeEvaluator() {
     }
@@ -38,7 +38,7 @@ public final class GenomeEvaluator {
         scratch.copyFrom(source);
         int[] cursor = TrollPolicy.cursorBuf;
         System.arraycopy(startCursor, 0, cursor, 0, GameState.MAX_TROLLS);
-        System.arraycopy(startPhase,  0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
+        System.arraycopy(startPhase, 0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
         for (int t = 0; t < HORIZON; t++) {
             int n = TrollPolicy.fillActions(scratch, popBuf, popLen, idx, cursor, actionBuf);
             Simulator.tick(scratch, actionBuf, n);
@@ -47,11 +47,11 @@ public final class GenomeEvaluator {
     }
 
     private static double fitness(GameState finalState) {
-        int scoreMe  = finalState.score(0);
+        int scoreMe = finalState.score(0);
         int scoreOpp = finalState.score(1);
-        int woodCarryMe  = 0;
+        int woodCarryMe = 0;
         int fruitCarryMe = 0;
-        int ironCarryMe  = 0;
+        int ironCarryMe = 0;
         int ownTrolls = 0;
         for (int i = 0; i < finalState.trollCount; i++) {
             if ((finalState.trollPlayer[i] & 0xFF) != 0) continue;
@@ -73,9 +73,9 @@ public final class GenomeEvaluator {
         }
 
         return (scoreMe - scoreOpp)
-             + ALPHA_WOOD_CARRY  * woodCarryMe
-             + ALPHA_FRUIT_CARRY * fruitCarryMe
-             + ALPHA_IRON_CARRY  * ironCarryMe
-             + ALPHA_TRAIN_PUSH  * trainPush;
+                + ALPHA_WOOD_CARRY * woodCarryMe
+                + ALPHA_FRUIT_CARRY * fruitCarryMe
+                + ALPHA_IRON_CARRY * ironCarryMe
+                + ALPHA_TRAIN_PUSH * trainPush;
     }
 }

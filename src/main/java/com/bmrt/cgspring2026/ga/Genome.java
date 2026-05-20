@@ -6,10 +6,13 @@ import com.bmrt.cgspring2026.model.TileType;
 public final class Genome {
 
     public static final int POP_SIZE = 20;
-    public static final int MAX_TARGETS_PER_TROLL = 10;
+    public static final int MAX_TARGETS_PER_TROLL = 6;
     public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
     public static final short EMPTY_GENE = -1;
     public static final short[] plantCandidates = new short[12];
+    public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
+    public static final int MAX_IRON_CANDIDATES = 64;
+    public static final short[] ironCandidates = new short[MAX_IRON_CANDIDATES];
     // Gene type dispatch (16-bit short):
     //   bit15=1                    → PLANT gene  (bits13-14=fruitType, bits8-12=x, bits0-7=y)
     //   bit15=0, bit14=1           → HARVEST gene (bits8-12=x, bits0-7=y)
@@ -24,10 +27,7 @@ public final class Genome {
     private static final int X_MASK = 0x1F;
     private static final int X_SHIFT = 8;
     public static int plantCandidateCount = 0;
-    public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
     public static int harvestCandidateCount = 0;
-    public static final int MAX_IRON_CANDIDATES = 64;
-    public static final short[] ironCandidates = new short[MAX_IRON_CANDIDATES];
     public static int ironCandidateCount = 0;
 
     public static short encode(int x, int y) {
@@ -76,7 +76,7 @@ public final class Genome {
         for (int t = 0; t < state.treeCount; t++) {
             if ((state.treeSize[t] & 0xFF) == 4 && state.treeHealth[t] > 0) {
                 harvestCandidates[harvestCandidateCount++] =
-                    encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
+                        encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
             }
         }
     }
@@ -99,8 +99,7 @@ public final class Genome {
         if (x + 1 < W && GameState.tiles[y * W + (x + 1)] == TileType.GRASS) return true;
         if (x - 1 >= 0 && GameState.tiles[y * W + (x - 1)] == TileType.GRASS) return true;
         if (y + 1 < H && GameState.tiles[(y + 1) * W + x] == TileType.GRASS) return true;
-        if (y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.GRASS) return true;
-        return false;
+        return y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.GRASS;
     }
 
     public static int plantFruitType(short g) {

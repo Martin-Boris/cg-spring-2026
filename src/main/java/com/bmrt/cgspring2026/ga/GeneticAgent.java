@@ -15,7 +15,7 @@ public final class GeneticAgent {
     public static final double HYSTERESIS_BONUS = 0.05;
     // Toggle d'instrumentation diagnostique. Mettre à false pour désactiver
     // tous les calculs de métriques (JIT élimine les branches mortes).
-    public static final boolean INSTRUMENT = true;
+    public static final boolean INSTRUMENT = false;
     public static final int IMMIGRANTS_PER_GEN = 2;
     final Population pop = new Population();
     final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
@@ -27,14 +27,14 @@ public final class GeneticAgent {
     // Évite la divergence sim/exec où le rollout GA persiste le cursor sur 25 ticks
     // alors que le vrai jeu repartait de gène 0 à chaque tour (bug PICK→DROP).
     // Réinitialisé entrée par entrée quand l'identité du troll (trollId) change.
-    private final int[]  persistedCursor  = new int[GameState.MAX_TROLLS];
-    private final byte[] persistedPhase   = new byte[GameState.MAX_TROLLS];
+    private final int[] persistedCursor = new int[GameState.MAX_TROLLS];
+    private final byte[] persistedPhase = new byte[GameState.MAX_TROLLS];
     private final byte[] persistedTrollId = new byte[GameState.MAX_TROLLS];
-    private boolean hasPersistedCursor = false;
     // CODE UNIQUEMENT POUR LE LOGING START
     private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
     boolean hasPrevBest = false;
     int lastBestIdx;
+    private boolean hasPersistedCursor = false;
     private SplittableRandom rng;
     private int lastGenCount;
     private double lastBestFitness;
@@ -75,33 +75,6 @@ public final class GeneticAgent {
             }
         }
         return best;
-    }
-
-    /**
-     * Argmax avec tie-break par hysteresis : parmi les individus à fitness max,
-     * choisit celui de plus petite distance de Hamming au best du tour précédent.
-     * Stabilise le best d'un tour à l'autre quand de nombreux individus sont tied
-     * (ce qui faisait sauter la sémantique du cursor persisté entre tours).
-     */
-    private int argmaxStable(double[] fit) {
-        double bestV = fit[0];
-        for (int i = 1; i < fit.length; i++) if (fit[i] > bestV) bestV = fit[i];
-        if (!hasPrevBest) {
-            for (int i = 0; i < fit.length; i++) if (fit[i] == bestV) return i;
-            return 0;
-        }
-        int bestIdx = -1;
-        int bestHam = Integer.MAX_VALUE;
-        final double EPS = 1e-6;
-        for (int i = 0; i < fit.length; i++) {
-            if (bestV - fit[i] >= EPS) continue;
-            int ham = computeHamming(pop.cur, pop.curLen, i, prevBestBuf, prevBestLen);
-            if (ham < bestHam) {
-                bestHam = ham;
-                bestIdx = i;
-            }
-        }
-        return bestIdx;
     }
 
     // CODE UNIQUEMENT POUR LE LOGING START
@@ -166,6 +139,33 @@ public final class GeneticAgent {
             if (state.treeHealth[t] > 0) n++;
         }
         return n;
+    }
+
+    /**
+     * Argmax avec tie-break par hysteresis : parmi les individus à fitness max,
+     * choisit celui de plus petite distance de Hamming au best du tour précédent.
+     * Stabilise le best d'un tour à l'autre quand de nombreux individus sont tied
+     * (ce qui faisait sauter la sémantique du cursor persisté entre tours).
+     */
+    private int argmaxStable(double[] fit) {
+        double bestV = fit[0];
+        for (int i = 1; i < fit.length; i++) if (fit[i] > bestV) bestV = fit[i];
+        if (!hasPrevBest) {
+            for (int i = 0; i < fit.length; i++) if (fit[i] == bestV) return i;
+            return 0;
+        }
+        int bestIdx = -1;
+        int bestHam = Integer.MAX_VALUE;
+        final double EPS = 1e-6;
+        for (int i = 0; i < fit.length; i++) {
+            if (bestV - fit[i] >= EPS) continue;
+            int ham = computeHamming(pop.cur, pop.curLen, i, prevBestBuf, prevBestLen);
+            if (ham < bestHam) {
+                bestHam = ham;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
     }
 
     /**
@@ -274,7 +274,7 @@ public final class GeneticAgent {
             for (int i = 0; i < state.trollCount; i++) {
                 if (state.trollId[i] != persistedTrollId[i]) {
                     persistedCursor[i] = 0;
-                    persistedPhase[i]  = 0;
+                    persistedPhase[i] = 0;
                 }
             }
         }
@@ -326,13 +326,13 @@ public final class GeneticAgent {
         // 4. Génère les actions du tick 0 — démarre du MÊME état que les évaluations GA
         // (persistedCursor/Phase), pour éliminer la divergence sim/exec.
         System.arraycopy(persistedCursor, 0, TrollPolicy.cursorBuf, 0, GameState.MAX_TROLLS);
-        System.arraycopy(persistedPhase,  0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
+        System.arraycopy(persistedPhase, 0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
         int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, TrollPolicy.cursorBuf, outActions);
 
         // Stash de l'état cursor/phase post-tick pour le tour suivant.
-        System.arraycopy(TrollPolicy.cursorBuf,    0, persistedCursor,  0, GameState.MAX_TROLLS);
-        System.arraycopy(TrollPolicy.policyPhase,  0, persistedPhase,   0, GameState.MAX_TROLLS);
-        System.arraycopy(state.trollId,            0, persistedTrollId, 0, GameState.MAX_TROLLS);
+        System.arraycopy(TrollPolicy.cursorBuf, 0, persistedCursor, 0, GameState.MAX_TROLLS);
+        System.arraycopy(TrollPolicy.policyPhase, 0, persistedPhase, 0, GameState.MAX_TROLLS);
+        System.arraycopy(state.trollId, 0, persistedTrollId, 0, GameState.MAX_TROLLS);
         hasPersistedCursor = true;
 
         // Diagnostic: compute metrics on raw GA output (prevBest holds T-1's best ici)

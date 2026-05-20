@@ -2020,18 +2020,18 @@ return true;
 }
 }
 private static class GenomeEvaluator {
-public static final int HORIZON = 25;
+public static final int HORIZON = 13;
 public static final int TRAIN_PUSH_TURN_CUTOFF = 150;
-public static final int    TRAIN_PUSH_TROLL_CAP = 5;
+public static final int TRAIN_PUSH_TROLL_CAP = 5;
 public static final double ALPHA_WOOD_CARRY = 2.0;
 public static final double ALPHA_FRUIT_CARRY = 0.5;
-public static final double ALPHA_IRON_CARRY     = 0.5;
-public static final double ALPHA_TRAIN_PUSH     = 0.5;
+public static final double ALPHA_IRON_CARRY = 0.5;
+public static final double ALPHA_TRAIN_PUSH = 1;
 private static final int[] TRAIN_RESOURCES = {
 ResourceType.PLUM, ResourceType.LEMON, ResourceType.APPLE, ResourceType.IRON
 };
-private static final int[]  ZERO_CURSOR = new int[GameState.MAX_TROLLS];
-private static final byte[] ZERO_PHASE  = new byte[GameState.MAX_TROLLS];
+private static final int[] ZERO_CURSOR = new int[GameState.MAX_TROLLS];
+private static final byte[] ZERO_PHASE = new byte[GameState.MAX_TROLLS];
 private GenomeEvaluator() {
 }
 public static double evaluate(GameState scratch, GameState source,
@@ -2046,7 +2046,7 @@ int[] startCursor, byte[] startPhase) {
 scratch.copyFrom(source);
 int[] cursor = TrollPolicy.cursorBuf;
 System.arraycopy(startCursor, 0, cursor, 0, GameState.MAX_TROLLS);
-System.arraycopy(startPhase,  0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
+System.arraycopy(startPhase, 0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
 for (int t = 0; t < HORIZON; t++) {
 int n = TrollPolicy.fillActions(scratch, popBuf, popLen, idx, cursor, actionBuf);
 Simulator.tick(scratch, actionBuf, n);
@@ -2054,11 +2054,11 @@ Simulator.tick(scratch, actionBuf, n);
 return fitness(scratch);
 }
 private static double fitness(GameState finalState) {
-int scoreMe  = finalState.score(0);
+int scoreMe = finalState.score(0);
 int scoreOpp = finalState.score(1);
-int woodCarryMe  = 0;
+int woodCarryMe = 0;
 int fruitCarryMe = 0;
-int ironCarryMe  = 0;
+int ironCarryMe = 0;
 int ownTrolls = 0;
 for (int i = 0; i < finalState.trollCount; i++) {
 if ((finalState.trollPlayer[i] & 0xFF) != 0) continue;
@@ -2078,10 +2078,10 @@ trainPush += Math.min(stock, target);
 }
 }
 return (scoreMe - scoreOpp)
-+ ALPHA_WOOD_CARRY  * woodCarryMe
++ ALPHA_WOOD_CARRY * woodCarryMe
 + ALPHA_FRUIT_CARRY * fruitCarryMe
-+ ALPHA_IRON_CARRY  * ironCarryMe
-+ ALPHA_TRAIN_PUSH  * trainPush;
++ ALPHA_IRON_CARRY * ironCarryMe
++ ALPHA_TRAIN_PUSH * trainPush;
 }
 }
 private static class Genome {
@@ -2090,6 +2090,9 @@ public static final int MAX_TARGETS_PER_TROLL = 10;
 public static final int SLOTS_PER_GENOME = GameState.MAX_TROLLS * MAX_TARGETS_PER_TROLL;
 public static final short EMPTY_GENE = -1;
 public static final short[] plantCandidates = new short[12];
+public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
+public static final int MAX_IRON_CANDIDATES = 64;
+public static final short[] ironCandidates = new short[MAX_IRON_CANDIDATES];
 private static final int PLANT_FLAG_MASK = 0x8000;
 private static final int HARVEST_FLAG_MASK = 0x4000;
 private static final int MINE_FLAG_MASK = 0x2000;  // bit13
@@ -2098,10 +2101,7 @@ private static final int FRUIT_TYPE_MASK = 0x3 << FRUIT_TYPE_SHIFT;
 private static final int X_MASK = 0x1F;
 private static final int X_SHIFT = 8;
 public static int plantCandidateCount = 0;
-public static final short[] harvestCandidates = new short[GameState.MAX_TREES];
 public static int harvestCandidateCount = 0;
-public static final int MAX_IRON_CANDIDATES = 64;
-public static final short[] ironCandidates = new short[MAX_IRON_CANDIDATES];
 public static int ironCandidateCount = 0;
 public static short encode(int x, int y) {
 return (short) (((x & 0xFF) << 8) | (y & 0xFF));
@@ -2161,8 +2161,7 @@ int W = GameState.width, H = GameState.height;
 if (x + 1 < W && GameState.tiles[y * W + (x + 1)] == TileType.GRASS) return true;
 if (x - 1 >= 0 && GameState.tiles[y * W + (x - 1)] == TileType.GRASS) return true;
 if (y + 1 < H && GameState.tiles[(y + 1) * W + x] == TileType.GRASS) return true;
-if (y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.GRASS) return true;
-return false;
+return y - 1 >= 0 && GameState.tiles[(y - 1) * W + x] == TileType.GRASS;
 }
 public static int plantFruitType(short g) {
 return (g & FRUIT_TYPE_MASK) >>> FRUIT_TYPE_SHIFT;
@@ -2220,7 +2219,7 @@ public static final long TURN_BUDGET_NS = 44_000_000L;
 public static final long INIT_BUDGET_NS = 920_000_000L;
 public static final double P_CROSSOVER = 0.70;
 public static final double HYSTERESIS_BONUS = 0.05;
-public static final boolean INSTRUMENT = true;
+public static final boolean INSTRUMENT = false;
 public static final int IMMIGRANTS_PER_GEN = 2;
 final Population pop = new Population();
 final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
@@ -2228,13 +2227,13 @@ final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
 private final GameState scratch = new GameState();
 private final int[] evalActionBuf = new int[GameState.MAX_TROLLS + 1];
 private final int[] prevOutActions = new int[GameState.MAX_TROLLS + 1];
-private final int[]  persistedCursor  = new int[GameState.MAX_TROLLS];
-private final byte[] persistedPhase   = new byte[GameState.MAX_TROLLS];
+private final int[] persistedCursor = new int[GameState.MAX_TROLLS];
+private final byte[] persistedPhase = new byte[GameState.MAX_TROLLS];
 private final byte[] persistedTrollId = new byte[GameState.MAX_TROLLS];
-private boolean hasPersistedCursor = false;
 private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
 boolean hasPrevBest = false;
 int lastBestIdx;
+private boolean hasPersistedCursor = false;
 private SplittableRandom rng;
 private int lastGenCount;
 private double lastBestFitness;
@@ -2271,26 +2270,6 @@ best = i;
 }
 }
 return best;
-}
-private int argmaxStable(double[] fit) {
-double bestV = fit[0];
-for (int i = 1; i < fit.length; i++) if (fit[i] > bestV) bestV = fit[i];
-if (!hasPrevBest) {
-for (int i = 0; i < fit.length; i++) if (fit[i] == bestV) return i;
-return 0;
-}
-int bestIdx = -1;
-int bestHam = Integer.MAX_VALUE;
-final double EPS = 1e-6;
-for (int i = 0; i < fit.length; i++) {
-if (bestV - fit[i] >= EPS) continue;
-int ham = computeHamming(pop.cur, pop.curLen, i, prevBestBuf, prevBestLen);
-if (ham < bestHam) {
-bestHam = ham;
-bestIdx = i;
-}
-}
-return bestIdx;
 }
 private static int computeHamming(short[] cur, byte[] curLen, int idx,
 short[] prev, byte[] prevLen) {
@@ -2349,6 +2328,26 @@ for (int t = 0; t < state.treeCount; t++) {
 if (state.treeHealth[t] > 0) n++;
 }
 return n;
+}
+private int argmaxStable(double[] fit) {
+double bestV = fit[0];
+for (int i = 1; i < fit.length; i++) if (fit[i] > bestV) bestV = fit[i];
+if (!hasPrevBest) {
+for (int i = 0; i < fit.length; i++) if (fit[i] == bestV) return i;
+return 0;
+}
+int bestIdx = -1;
+int bestHam = Integer.MAX_VALUE;
+final double EPS = 1e-6;
+for (int i = 0; i < fit.length; i++) {
+if (bestV - fit[i] >= EPS) continue;
+int ham = computeHamming(pop.cur, pop.curLen, i, prevBestBuf, prevBestLen);
+if (ham < bestHam) {
+bestHam = ham;
+bestIdx = i;
+}
+}
+return bestIdx;
 }
 private int computePopTreeCoverage(GameState state, short[] buf, byte[] lenBuf) {
 for (int t = 0; t < state.treeCount; t++) coverageSeen[t] = false;
@@ -2434,7 +2433,7 @@ if (hasPersistedCursor) {
 for (int i = 0; i < state.trollCount; i++) {
 if (state.trollId[i] != persistedTrollId[i]) {
 persistedCursor[i] = 0;
-persistedPhase[i]  = 0;
+persistedPhase[i] = 0;
 }
 }
 }
@@ -2468,11 +2467,11 @@ if (INSTRUMENT) {
 lastBestCoverage = computeIndivTreeCoverage(state, pop.cur, pop.curLen, lastBestIdx);
 }
 System.arraycopy(persistedCursor, 0, TrollPolicy.cursorBuf, 0, GameState.MAX_TROLLS);
-System.arraycopy(persistedPhase,  0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
+System.arraycopy(persistedPhase, 0, TrollPolicy.policyPhase, 0, GameState.MAX_TROLLS);
 int n = TrollPolicy.fillOwnActions(state, pop.cur, pop.curLen, lastBestIdx, TrollPolicy.cursorBuf, outActions);
-System.arraycopy(TrollPolicy.cursorBuf,    0, persistedCursor,  0, GameState.MAX_TROLLS);
-System.arraycopy(TrollPolicy.policyPhase,  0, persistedPhase,   0, GameState.MAX_TROLLS);
-System.arraycopy(state.trollId,            0, persistedTrollId, 0, GameState.MAX_TROLLS);
+System.arraycopy(TrollPolicy.cursorBuf, 0, persistedCursor, 0, GameState.MAX_TROLLS);
+System.arraycopy(TrollPolicy.policyPhase, 0, persistedPhase, 0, GameState.MAX_TROLLS);
+System.arraycopy(state.trollId, 0, persistedTrollId, 0, GameState.MAX_TROLLS);
 hasPersistedCursor = true;
 if (hasPrevBest) {
 lastHamming = computeHamming(pop.cur, pop.curLen, lastBestIdx,
