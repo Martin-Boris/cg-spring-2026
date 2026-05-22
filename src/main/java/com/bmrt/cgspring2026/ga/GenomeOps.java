@@ -418,6 +418,7 @@ public final class GenomeOps {
      * Permet de ré-injecter de la diversité de cibles que la boucle évolutive aurait éliminée.
      */
     public static void mutateInsertCut(GameState state, short[] buf, byte[] lenBuf, int individuIdx, SplittableRandom rng) {
+        if (state.turn < GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF) return;
         // 1. Pick un troll avec de la place
         int count = 0;
         for (int j = 0; j < state.trollCount; j++) {
