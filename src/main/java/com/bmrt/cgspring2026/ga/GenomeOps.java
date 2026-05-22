@@ -234,6 +234,10 @@ public final class GenomeOps {
                     written++;
                     continue;
                 }
+                // Pré-cutoff : pas de CUT
+                if (state.turn < GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF && Genome.isCut(g)) {
+                    continue;
+                }
                 int gx = Genome.geneX(g);
                 int gy = Genome.geneY(g);
                 int t = state.treeIndexAt(gx, gy);

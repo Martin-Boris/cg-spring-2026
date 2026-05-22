@@ -62,6 +62,9 @@ class GenomeOpsPrevBestTest {
 
     private static GameState stateWith(int[][] trolls, int[][] trees) {
         GameState s = new GameState();
+        // Tests CUT compaction & tree-alive filtering ; runner au cutoff pour bypasser
+        // le gate pré-cutoff sur les gènes CUT (couvert séparément par GenomeOpsCutCutoffTest).
+        s.turn = GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF;
         for (int[] tr : trolls) {
             int i = s.trollCount++;
             s.trollPlayer[i] = (byte) tr[0];

@@ -101,6 +101,9 @@ class GeneticAgentPrevBestTest {
         // Forcer un stash que initWarm ne produirait pas (far tree en premier)
         // pour discriminer la branche hasPrevBest=true du fallback.
         GameState s = simpleState();
+        // Test cible la propagation du stash vers slot 0 ; runner au cutoff pour
+        // bypasser le gate CUT pré-cutoff (couvert séparément par GenomeOpsCutCutoffTest).
+        s.turn = GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF;
         GeneticAgent agent = new GeneticAgent();
         long deadline = System.nanoTime() - 1;
         int[] out = new int[GameState.MAX_TROLLS + 1];

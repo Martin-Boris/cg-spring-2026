@@ -82,4 +82,59 @@ class GenomeOpsCutCutoffTest {
         }
         assertThat(found).isTrue();
     }
+
+    @Test void initFromPrevBest_dropsCutGenesBeforeCutoff() {
+        GameState s = stateWithTree(GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF - 1);
+
+        short[] prevBuf = new short[Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(prevBuf, Genome.EMPTY_GENE);
+        byte[] prevLen = new byte[GameState.MAX_TROLLS];
+        // Place a CUT gene on troll 0 targeting tree (3,2)
+        prevBuf[0] = Genome.encode(3, 2);
+        prevLen[0] = 1;
+
+        short[] dstBuf = newBuf();
+        byte[]  dstLen = newLen();
+        GenomeOps.initFromPrevBest(s, prevBuf, prevLen, dstBuf, dstLen, 0);
+
+        assertThat(hasCutGene(dstBuf, dstLen, 0)).isFalse();
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(0);
+    }
+
+    @Test void initFromPrevBest_keepsCutGenesAtCutoff() {
+        GameState s = stateWithTree(GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF);
+
+        short[] prevBuf = new short[Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(prevBuf, Genome.EMPTY_GENE);
+        byte[] prevLen = new byte[GameState.MAX_TROLLS];
+        prevBuf[0] = Genome.encode(3, 2);
+        prevLen[0] = 1;
+
+        short[] dstBuf = newBuf();
+        byte[]  dstLen = newLen();
+        GenomeOps.initFromPrevBest(s, prevBuf, prevLen, dstBuf, dstLen, 0);
+
+        assertThat(hasCutGene(dstBuf, dstLen, 0)).isTrue();
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
+    }
+
+    @Test void initFromPrevBest_keepsMineGenesBeforeCutoff() {
+        GameState s = stateWithTree(GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF - 1);
+
+        short[] prevBuf = new short[Genome.SLOTS_PER_GENOME];
+        java.util.Arrays.fill(prevBuf, Genome.EMPTY_GENE);
+        byte[] prevLen = new byte[GameState.MAX_TROLLS];
+        // MINE gene n'a pas besoin d'arbre, juste d'une cellule IRON dans la carte.
+        // On verifie qu'il survit independamment du gate CUT.
+        prevBuf[0] = Genome.makeMine(2, 2);
+        prevLen[0] = 1;
+
+        short[] dstBuf = newBuf();
+        byte[]  dstLen = newLen();
+        GenomeOps.initFromPrevBest(s, prevBuf, prevLen, dstBuf, dstLen, 0);
+
+        assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
+        short g = (short) Genome.gene(dstBuf, 0, 0, 0);
+        assertThat(Genome.isMine(g)).isTrue();
+    }
 }
