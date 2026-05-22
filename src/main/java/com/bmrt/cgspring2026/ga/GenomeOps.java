@@ -36,35 +36,37 @@ public final class GenomeOps {
         }
         if (ownTrollsCount == 0) return;
 
-        // 3. Récupérer arbres vivants, shuffle Fisher-Yates
-        int treeCount = 0;
-        for (int t = 0; t < state.treeCount; t++) {
-            if (state.treeHealth[t] > 0) {
-                shuffleBuf[treeCount++] = Genome.encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
-            }
-        }
-        for (int i = treeCount - 1; i > 0; i--) {
-            int j = rng.nextInt(i + 1);
-            short tmp = shuffleBuf[i]; shuffleBuf[i] = shuffleBuf[j]; shuffleBuf[j] = tmp;
-        }
-
-        // 4. Distribuer
-        for (int i = 0; i < treeCount; i++) {
-            if (rng.nextDouble() < P_SKIP_INIT) continue;
-            // Liste des trolls non pleins
-            int freeCount = 0;
-            for (int k = 0; k < ownTrollsCount; k++) {
-                int trollIdx = ownTrollsBuf[k];
-                if ((state.trollCP[trollIdx] & 0xFF) == 0) continue;
-                if (Genome.len(lenBuf, individuIdx, trollIdx) < Genome.MAX_TARGETS_PER_TROLL) {
-                    freeTrollsBuf[freeCount++] = trollIdx;
+        // 3. Récupérer arbres vivants + 4. distribuer (UNIQUEMENT post-cutoff)
+        if (state.turn >= GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF) {
+            int treeCount = 0;
+            for (int t = 0; t < state.treeCount; t++) {
+                if (state.treeHealth[t] > 0) {
+                    shuffleBuf[treeCount++] = Genome.encode(state.treeX[t] & 0xFF, state.treeY[t] & 0xFF);
                 }
             }
-            if (freeCount == 0) break;
-            int chosenTroll = freeTrollsBuf[rng.nextInt(freeCount)];
-            int len = Genome.len(lenBuf, individuIdx, chosenTroll);
-            Genome.setGene(buf, individuIdx, chosenTroll, len, shuffleBuf[i]);
-            Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
+            for (int i = treeCount - 1; i > 0; i--) {
+                int j = rng.nextInt(i + 1);
+                short tmp = shuffleBuf[i]; shuffleBuf[i] = shuffleBuf[j]; shuffleBuf[j] = tmp;
+            }
+
+            // 4. Distribuer
+            for (int i = 0; i < treeCount; i++) {
+                if (rng.nextDouble() < P_SKIP_INIT) continue;
+                // Liste des trolls non pleins
+                int freeCount = 0;
+                for (int k = 0; k < ownTrollsCount; k++) {
+                    int trollIdx = ownTrollsBuf[k];
+                    if ((state.trollCP[trollIdx] & 0xFF) == 0) continue;
+                    if (Genome.len(lenBuf, individuIdx, trollIdx) < Genome.MAX_TARGETS_PER_TROLL) {
+                        freeTrollsBuf[freeCount++] = trollIdx;
+                    }
+                }
+                if (freeCount == 0) break;
+                int chosenTroll = freeTrollsBuf[rng.nextInt(freeCount)];
+                int len = Genome.len(lenBuf, individuIdx, chosenTroll);
+                Genome.setGene(buf, individuIdx, chosenTroll, len, shuffleBuf[i]);
+                Genome.setLen(lenBuf, individuIdx, chosenTroll, len + 1);
+            }
         }
 
         // 5. Injecter gènes PLANT

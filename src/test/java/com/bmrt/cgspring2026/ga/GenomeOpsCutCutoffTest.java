@@ -118,6 +118,39 @@ class GenomeOpsCutCutoffTest {
         assertThat(Genome.len(dstLen, 0, 0)).isEqualTo(1);
     }
 
+    @Test void initRandom_noCutGeneBeforeCutoff() {
+        GameState s = stateWithTree(GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF - 1);
+        Genome.initHarvestCandidates(s);
+        Genome.initIronCandidates();
+
+        short[] buf = newBuf();
+        byte[]  lens = newLen();
+        SplittableRandom rng = new SplittableRandom(42);
+        boolean anyCut = false;
+        for (int i = 0; i < 100; i++) {
+            GenomeOps.initRandom(s, buf, lens, 0, rng);
+            if (hasCutGene(buf, lens, 0)) anyCut = true;
+        }
+
+        assertThat(anyCut).isFalse();
+    }
+
+    @Test void initRandom_canEmitCutGeneAtCutoff() {
+        GameState s = stateWithTree(GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF);
+        Genome.initHarvestCandidates(s);
+        Genome.initIronCandidates();
+
+        short[] buf = newBuf();
+        byte[]  lens = newLen();
+        SplittableRandom rng = new SplittableRandom(7);
+        boolean found = false;
+        for (int i = 0; i < 50 && !found; i++) {
+            GenomeOps.initRandom(s, buf, lens, 0, rng);
+            found = hasCutGene(buf, lens, 0);
+        }
+        assertThat(found).isTrue();
+    }
+
     @Test void initFromPrevBest_keepsMineGenesBeforeCutoff() {
         GameState s = stateWithTree(GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF - 1);
 

@@ -81,6 +81,7 @@ class GenomeOpsInitTest {
             java.util.Arrays.fill(buf, Genome.EMPTY_GENE);
             java.util.Arrays.fill(lenBuf, (byte) 0);
             GameState s = makeState(trees, 3, 0);
+            s.turn = GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF;
             GenomeOps.initRandom(s, buf, lenBuf, 0, rng);
             for (int j = 0; j < GameState.MAX_TROLLS; j++) {
                 totalAssigned += Genome.len(lenBuf, 0, j);

@@ -82,6 +82,7 @@ class GenomeOpsCutFilterTest {
         s.trollCP[0] = 1; s.trollHP[0] = 0;
         s.treeCount = 1;
         s.treeX[0] = 3; s.treeY[0] = 2; s.treeHealth[0] = 5;
+        s.turn = GenomeEvaluator.TRAIN_PUSH_TURN_CUTOFF;
         Genome.initHarvestCandidates(s);
 
         short[] buf = newBuf();
