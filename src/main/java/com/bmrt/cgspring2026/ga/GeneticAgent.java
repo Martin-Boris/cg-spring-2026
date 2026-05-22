@@ -9,14 +9,17 @@ import java.util.SplittableRandom;
 
 public final class GeneticAgent {
 
-    public static final long TURN_BUDGET_NS = 44_000_000L;
+    public static final long TURN_BUDGET_NS = 46_000_000L;
     public static final long INIT_BUDGET_NS = 920_000_000L;
     public static final double P_CROSSOVER = 0.70;
     public static final double HYSTERESIS_BONUS = 0.05;
     // Toggle d'instrumentation diagnostique. Mettre à false pour désactiver
     // tous les calculs de métriques (JIT élimine les branches mortes).
     public static final boolean INSTRUMENT = false;
-    public static final int IMMIGRANTS_PER_GEN = 2;
+    public static final int IMMIGRANTS_PER_GEN = 1;
+    public static final int ELITE_SIZE = 2;
+    public static final double P_MUT_AFTER_CROSSOVER = 0.6;
+    public static final int TOURNAMENT_SIZE = 3;
     final Population pop = new Population();
     final short[] prevBestBuf = new short[Genome.SLOTS_PER_GENOME];
     final byte[] prevBestLen = new byte[GameState.MAX_TROLLS];
@@ -30,6 +33,7 @@ public final class GeneticAgent {
     private final int[] persistedCursor = new int[GameState.MAX_TROLLS];
     private final byte[] persistedPhase = new byte[GameState.MAX_TROLLS];
     private final byte[] persistedTrollId = new byte[GameState.MAX_TROLLS];
+    private final int[] scratchEliteIdx = new int[ELITE_SIZE];
     // CODE UNIQUEMENT POUR LE LOGING START
     private final boolean[] coverageSeen = new boolean[GameState.MAX_TREES];
     boolean hasPrevBest = false;
@@ -457,22 +461,28 @@ public final class GeneticAgent {
     }
 
     private void stepGeneration(GameState state) {
-        // Élitisme top-1 (tie-break sur proximité au prev best — propage la stabilité
-        // dans les générations successives)
-        int bestIdx = argmaxStable(pop.curFit);
-        copyIndividu(pop.cur, pop.curLen, bestIdx, pop.nxt, pop.nxtLen, 0);
-        pop.nxtFit[0] = pop.curFit[bestIdx];
+        // Élitisme top-K : slot 0 = best avec hysteresis tie-break, slots 1..ELITE_SIZE-1 = top suivants
+        int[] eliteIdx = scratchEliteIdx;
+        eliteIdx[0] = argmaxStable(pop.curFit);
+        selectTopKExcluding(pop.curFit, eliteIdx, 1, ELITE_SIZE);
+        for (int k = 0; k < ELITE_SIZE; k++) {
+            copyIndividu(pop.cur, pop.curLen, eliteIdx[k], pop.nxt, pop.nxtLen, k);
+            pop.nxtFit[k] = pop.curFit[eliteIdx[k]];
+        }
 
         // Génère offspring (les IMMIGRANTS_PER_GEN derniers slots sont réservés à l'immigration)
         int immigrantStart = Genome.POP_SIZE - IMMIGRANTS_PER_GEN;
-        for (int i = 1; i < immigrantStart; i++) {
+        for (int i = ELITE_SIZE; i < immigrantStart; i++) {
             if (rng.nextDouble() < P_CROSSOVER) {
-                int p1 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
-                int p2 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
+                int p1 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE, TOURNAMENT_SIZE);
+                int p2 = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE, TOURNAMENT_SIZE);
                 GenomeOps.crossover(pop.cur, pop.curLen, p1, pop.cur, pop.curLen, p2,
                         pop.nxt, pop.nxtLen, i, rng);
+                if (rng.nextDouble() < P_MUT_AFTER_CROSSOVER) {
+                    GenomeOps.runMutation(state, pop.nxt, pop.nxtLen, i, rng);
+                }
             } else {
-                int p = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE);
+                int p = Selection.tournament(pop.curFit, rng, Genome.POP_SIZE, TOURNAMENT_SIZE);
                 copyIndividu(pop.cur, pop.curLen, p, pop.nxt, pop.nxtLen, i);
                 GenomeOps.runMutation(state, pop.nxt, pop.nxtLen, i, rng);
             }
@@ -490,6 +500,28 @@ public final class GeneticAgent {
         }
 
         pop.swap();
+    }
+
+    private void selectTopKExcluding(double[] fit, int[] outIdx, int startSlot, int totalK) {
+        for (int slot = startSlot; slot < totalK; slot++) {
+            int bestIdx = -1;
+            double bestV = Double.NEGATIVE_INFINITY;
+            for (int i = 0; i < fit.length; i++) {
+                boolean already = false;
+                for (int s = 0; s < slot; s++) {
+                    if (outIdx[s] == i) {
+                        already = true;
+                        break;
+                    }
+                }
+                if (already) continue;
+                if (fit[i] > bestV) {
+                    bestV = fit[i];
+                    bestIdx = i;
+                }
+            }
+            outIdx[slot] = bestIdx;
+        }
     }
 
     private double hysteresisBonus(short[] buf, byte[] lenBuf, int idx) {

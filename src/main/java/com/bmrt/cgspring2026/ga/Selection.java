@@ -6,9 +6,16 @@ public final class Selection {
 
     private Selection() {}
 
-    public static int tournament(double[] fit, SplittableRandom rng, int popSize) {
-        int a = rng.nextInt(popSize);
-        int b = rng.nextInt(popSize);
-        return (fit[a] >= fit[b]) ? a : b;
+    public static int tournament(double[] fit, SplittableRandom rng, int popSize, int k) {
+        int best = rng.nextInt(popSize);
+        double bestFit = fit[best];
+        for (int i = 1; i < k; i++) {
+            int c = rng.nextInt(popSize);
+            if (fit[c] > bestFit) {
+                best = c;
+                bestFit = fit[c];
+            }
+        }
+        return best;
     }
 }

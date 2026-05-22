@@ -13,7 +13,7 @@ class SelectionTest {
         int wins = 0;
         SplittableRandom rng = new SplittableRandom(0);
         for (int t = 0; t < 1000; t++) {
-            int pick = Selection.tournament(fit, rng, fit.length);
+            int pick = Selection.tournament(fit, rng, fit.length, 2);
             if (fit[pick] >= 10.0) wins++;
         }
         // dans la moitié des cas un des deux tirages est ≤ 5.0 → l'autre gagne. Donc on devrait
@@ -23,7 +23,7 @@ class SelectionTest {
 
     @Test void tournamentWithSingleIndividualReturnsIt() {
         double[] fit = new double[]{ 42.0 };
-        int pick = Selection.tournament(fit, new SplittableRandom(1), 1);
+        int pick = Selection.tournament(fit, new SplittableRandom(1), 1, 2);
         assertThat(pick).isEqualTo(0);
     }
 }
