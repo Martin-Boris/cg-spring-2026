@@ -2,6 +2,7 @@ package com.bmrt.cgspring2026.ga;
 
 import com.bmrt.cgspring2026.model.GameState;
 import com.bmrt.cgspring2026.model.ResourceType;
+import com.bmrt.cgspring2026.model.TreeType;
 import com.bmrt.cgspring2026.simulation.Simulator;
 
 public final class GenomeEvaluator {
@@ -13,6 +14,7 @@ public final class GenomeEvaluator {
     public static final double ALPHA_FRUIT_CARRY = 0.5;
     public static final double ALPHA_IRON_CARRY = 0.5;
     public static final double ALPHA_TRAIN_PUSH = 1;
+    public static final double ALPHA_NEAR_TREE = 2.0;
 
     private static final int[] TRAIN_RESOURCES = {
             ResourceType.PLUM, ResourceType.LEMON, ResourceType.APPLE, ResourceType.IRON
@@ -72,10 +74,31 @@ public final class GenomeEvaluator {
             }
         }
 
+        double nearTreeBonus = 0.0;
+        if (finalState.turn < TRAIN_PUSH_TURN_CUTOFF) {
+            boolean hasPlum = false, hasLemon = false, hasApple = false;
+            int sx = GameState.shackMeX, sy = GameState.shackMeY;
+            for (int t = 0; t < finalState.treeCount; t++) {
+                if (finalState.treeHealth[t] <= 0) continue;
+                byte type = finalState.treeType[t];
+                if (type == TreeType.BANANA) continue;
+                int dx = (finalState.treeX[t] & 0xFF) - sx;
+                int dy = (finalState.treeY[t] & 0xFF) - sy;
+                if (Math.abs(dx) + Math.abs(dy) > 5) continue;
+                if      (type == TreeType.PLUM  && !hasPlum)  hasPlum  = true;
+                else if (type == TreeType.LEMON && !hasLemon) hasLemon = true;
+                else if (type == TreeType.APPLE && !hasApple) hasApple = true;
+                if (hasPlum && hasLemon && hasApple) break;
+            }
+            int typesCovered = (hasPlum ? 1 : 0) + (hasLemon ? 1 : 0) + (hasApple ? 1 : 0);
+            nearTreeBonus = ALPHA_NEAR_TREE * typesCovered;
+        }
+
         return (scoreMe - scoreOpp)
                 + ALPHA_WOOD_CARRY * woodCarryMe
                 + ALPHA_FRUIT_CARRY * fruitCarryMe
                 + ALPHA_IRON_CARRY * ironCarryMe
-                + ALPHA_TRAIN_PUSH * trainPush;
+                + ALPHA_TRAIN_PUSH * trainPush
+                + nearTreeBonus;
     }
 }
